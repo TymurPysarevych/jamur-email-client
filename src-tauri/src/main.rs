@@ -1,9 +1,9 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use crate::command::fetch_messages;
+mod commands;
 
-mod command;
+use crate::commands::messages::*;
 
 fn main() {
     tauri::Builder::default()

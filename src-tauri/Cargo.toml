@@ -16,6 +16,7 @@ imap = "2.4.1"
 native-tls = "0.2.12"
 mail-parser = "0.9.3"
 chrono = "0.4.38"
+dotenv = "0.15.0"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

@@ -1,92 +1,63 @@
+extern crate chrono;
 extern crate imap;
 extern crate native_tls;
-extern crate chrono;
+
+use std::net::TcpStream;
+use std::time::{Duration, UNIX_EPOCH};
 
 use chrono::prelude::DateTime;
 use chrono::Utc;
-use std::time::{UNIX_EPOCH, Duration};
-use std::net::TcpStream;
-use std::str::from_utf8;
-use imap::{Client, Error, Session};
+use dotenv::dotenv;
+use imap::{Client, Session};
+use imap::types::Fetch;
 use mail_parser::{Header, Message, MessageParser};
 use native_tls::{TlsConnector, TlsStream};
 
+use crate::structs::email::Email;
+
 #[tauri::command]
-pub async fn fetch_messages(server: &str, login: &str, password: &str) -> String {
-    let mut imap_session = open_imap_session(server, login, password).await;
+pub async fn fetch_messages(server: String, login: String, password: String) -> Result<Vec<Email>, ()> {
+    dotenv().ok();
+    let env_server = std::env::var("SERVER").expect("SERVER must be set.");
+    let env_login = std::env::var("LOGIN").expect("LOGIN must be set.");
+    let env_password = std::env::var("PASSWORD").expect("PASSWORD must be set.");
+    
+    let mut imap_session = open_imap_session(&env_server, &env_login, &env_password).await;
 
-    let message = fetch_all(&mut imap_session).await;
-
-    imap_session.logout().ok();
-
-    format!("{:?}", message)
-}
-
-async fn fetch_first(imap_session: &mut Session<TlsStream<TcpStream>>) -> String {
-    let option = imap_session.fetch("1", "BODY[]").ok();
-
-    let copy = option.unwrap();
-    let option_fetch = copy.first();
-    let message = option_fetch.unwrap();
-
-    let body_raw = message.body().expect("message did not have a body!");
-    let body = from_utf8(body_raw)
-        .expect("message was not valid utf-8")
-        .to_string();
-    println!("-- 1 message received, logging out");
-
-    let mail = MessageParser::new().parse(&body).unwrap();
-
-    let addresses = mail.from().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
-
-    format!(
-        "From: {:?}\nSubject: {:?}\n\n{:?}",
-        addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>().join(", "),
-        mail.subject().unwrap(),
-        mail.html_body
-    )
-}
-
-async fn fetch_by_query(imap_session: &mut Session<TlsStream<TcpStream>>) -> Result<usize, Error> {
-    let since = "19-Jul-2024";
-    let uids = imap_session.uid_search(format!("SEEN SINCE {}", since)).unwrap();
-    println!("-- {} messages seen since {}", uids.len(), since);
-
-    for uid in uids {
-        let messages_stream = imap_session.uid_fetch(format!("{}", uid), "BODY[]").ok();
-
-        let copy = messages_stream.unwrap();
-        let option_fetch = copy.first();
-        let message = option_fetch.unwrap();
-
-        let body = from_utf8(message.body().expect("message did not have a body!"))
-            .expect("message was not valid utf-8")
-            .to_string();
-        let mail = MessageParser::new().parse(&body).unwrap();
-
-        let delivered_at = get_deliver_date(&mail);
-
-
-        let addresses = mail.from().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
-
-        println!("{}", format!(
-            "From: {:?}\nSubject: {:?}\n\n{:?}",
-            addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>().join(", "),
-            mail.subject().unwrap(),
-            mail.text_body
-        ));
-    }
-
-    Ok(1)
-}
-
-async fn fetch_all(imap_session: &mut Session<TlsStream<TcpStream>>) -> String {
     let messages_stream = imap_session.fetch("1:*", "BODY[]").ok();
 
     let messages = messages_stream.unwrap();
 
-    println!("-- {} messages received", messages.len());
-    messages.len().to_string()
+    let web_emails: Vec<Email> = messages.iter()
+        .map(|message| {
+            parse_message(message)
+        }).collect::<Vec<Email>>();
+
+    imap_session.logout().ok();
+
+    Ok(web_emails)
+}
+
+#[tauri::command]
+pub async fn fetch_by_query(server: String, login: String, password: String, since: String) -> Result<Vec<Email>, ()> {
+    let mut imap_session = open_imap_session(server.as_str(), login.as_str(), password.as_str()).await;
+    // since = "19-Jul-2024";
+    let uids = imap_session.uid_search(format!("SEEN SINCE {}", since)).unwrap();
+    println!("-- {} messages seen since {}", uids.len(), since);
+    
+    let mut web_emails: Vec<Email> = vec![];
+
+    for uid in uids {
+        let messages_stream = imap_session.uid_fetch(format!("{}", uid), "BODY[]").ok();
+
+        let messages = messages_stream.unwrap();
+
+        let message = messages.first().unwrap();
+
+        web_emails.push(parse_message(message));
+    }
+
+    Ok(web_emails)
 }
 
 async fn open_imap_session(server: &str, login: &str, password: &str) -> Session<TlsStream<TcpStream>> {
@@ -125,4 +96,22 @@ fn get_deliver_date(mail: &Message) -> String {
         return datetime.format("%d-%m-%Y %H:%M:%S").to_string();
     }
     return "".to_string();
+}
+
+fn parse_message(message: &Fetch) -> Email {
+    let body_raw = message.body().expect("message did not have a body!");
+    let body = body_raw.iter().map(|&c| c as char).collect::<String>();
+    let mail = MessageParser::new().parse(&body).unwrap();
+
+    let delivered_at = get_deliver_date(&mail);
+
+    let addresses = mail.from().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
+
+    let mail = Email {
+        delivered_at,
+        to: addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>().join(", "),
+        subject: mail.subject().unwrap().to_string(),
+        body: mail.body_html(0).unwrap().to_string(),
+    };
+    mail
 }

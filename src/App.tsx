@@ -1,53 +1,47 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/tauri";
+import {useState} from "react";
+import {invoke} from "@tauri-apps/api/tauri";
 import "./App.css";
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+    const [greetMsg, setGreetMsg] = useState("");
+    const [server, setServer] = useState("");
+    const [login, setLogin] = useState("");
+    const [password, setPassword] = useState("");
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-    setGreetMsg(await invoke("fetch_messages", { server: "foo", login: "bar", password: "baz" }));
-  }
+    async function greet() {
+        // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
+        const response = await invoke("fetch_messages", {server, login, password})
+        console.log(response)
+        setGreetMsg(`${response}`);
+    }
 
-  return (
-    <div className="container">
-      <h1>Welcome to Tauri!</h1>
+    return (
+        <div className="container">
+            <form
+                className="row"
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    greet();
+                }}
+            >
+                <input
+                    onChange={(e) => setServer(e.currentTarget.value)}
+                    placeholder="Enter a server..."
+                />
+                <input
+                    onChange={(e) => setLogin(e.currentTarget.value)}
+                    placeholder="Enter a name..."
+                />
+                <input
+                    onChange={(e) => setPassword(e.currentTarget.value)}
+                    placeholder="Enter a password..."
+                />
+                <button type="submit">Start</button>
+            </form>
 
-      <div className="row">
-        <a href="https://vitejs.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://reactjs.org" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-
-      <p>{greetMsg}</p>
-    </div>
-  );
+            <p>{greetMsg}</p>
+        </div>
+    );
 }
 
 export default App;

@@ -1,45 +1,37 @@
 import {useState} from "react";
 import {invoke} from "@tauri-apps/api/tauri";
 import "./App.css";
+import {Email} from "./interfaces/Email.ts";
+import DOMPurify from 'dompurify';
 
 function App() {
-    const [greetMsg, setGreetMsg] = useState("");
-    const [server, setServer] = useState("");
-    const [login, setLogin] = useState("");
-    const [password, setPassword] = useState("");
+    const [emails, setEmails] = useState<Array<Email>>([]);
 
-    async function greet() {
-        // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-        const response = await invoke("fetch_messages", {server, login, password})
-        console.log(response)
-        setGreetMsg(`${response}`);
+    const fetchEmails = async () => {
+        await invoke<Array<Email>>("fetch_messages", {server: '', login: '', password: ''})
+        // await invoke<Array<Email>>("fetch_by_query", {server: '', login: '', password: '', since: '20-Jul-2024'})
+            .then((response) => setEmails(response))
+            .catch((e) => console.error(e))
+    }
+
+    const sanitize = (html: string) => {
+        return DOMPurify.sanitize(html, {USE_PROFILES: {html: true}});
     }
 
     return (
         <div className="container">
-            <form
-                className="row"
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    greet();
-                }}
-            >
-                <input
-                    onChange={(e) => setServer(e.currentTarget.value)}
-                    placeholder="Enter a server..."
-                />
-                <input
-                    onChange={(e) => setLogin(e.currentTarget.value)}
-                    placeholder="Enter a name..."
-                />
-                <input
-                    onChange={(e) => setPassword(e.currentTarget.value)}
-                    placeholder="Enter a password..."
-                />
-                <button type="submit">Start</button>
-            </form>
-
-            <p>{greetMsg}</p>
+            <button onClick={fetchEmails}>Fetch Emails</button>
+            <h1>All Emails</h1>
+            <div>
+                {emails.map((emailDom, index) => (
+                    <div key={index} className="email">
+                        <h1>{emailDom.subject}</h1>
+                        <p>From: {emailDom.from.join(", ")}</p>
+                        <p>To: {emailDom.to.join(", ")}</p>
+                        <div dangerouslySetInnerHTML={{__html: sanitize(emailDom.body)}}></div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }

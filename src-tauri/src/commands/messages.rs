@@ -10,7 +10,7 @@ use chrono::Utc;
 use dotenv::dotenv;
 use imap::{Client, Session};
 use imap::types::Fetch;
-use mail_parser::{Header, Message, MessageParser};
+use mail_parser::{decoders::charsets::map::charset_decoder, Header, Message, MessageParser};
 use native_tls::{TlsConnector, TlsStream};
 
 use crate::structs::email::Email;
@@ -21,10 +21,10 @@ pub async fn fetch_messages(server: String, login: String, password: String) -> 
     let env_server = std::env::var("SERVER").expect("SERVER must be set.");
     let env_login = std::env::var("LOGIN").expect("LOGIN must be set.");
     let env_password = std::env::var("PASSWORD").expect("PASSWORD must be set.");
-    
+
     let mut imap_session = open_imap_session(&env_server, &env_login, &env_password).await;
 
-    let messages_stream = imap_session.fetch("1:*", "BODY[]").ok();
+    let messages_stream = imap_session.fetch("1:*", "RFC822").ok();
 
     let messages = messages_stream.unwrap();
 
@@ -40,11 +40,17 @@ pub async fn fetch_messages(server: String, login: String, password: String) -> 
 
 #[tauri::command]
 pub async fn fetch_by_query(server: String, login: String, password: String, since: String) -> Result<Vec<Email>, ()> {
-    let mut imap_session = open_imap_session(server.as_str(), login.as_str(), password.as_str()).await;
-    // since = "19-Jul-2024";
+    dotenv().ok();
+    let env_server = std::env::var("SERVER").expect("SERVER must be set.");
+    let env_login = std::env::var("LOGIN").expect("LOGIN must be set.");
+    let env_password = std::env::var("PASSWORD").expect("PASSWORD must be set.");
+    let mut imap_session = open_imap_session(env_server.as_str(), env_login.as_str(), env_password.as_str()).await;
+
+    // since = 20-Jul-2024
+
     let uids = imap_session.uid_search(format!("SEEN SINCE {}", since)).unwrap();
     println!("-- {} messages seen since {}", uids.len(), since);
-    
+
     let mut web_emails: Vec<Email> = vec![];
 
     for uid in uids {
@@ -56,6 +62,8 @@ pub async fn fetch_by_query(server: String, login: String, password: String, sin
 
         web_emails.push(parse_message(message));
     }
+
+    imap_session.logout().ok();
 
     Ok(web_emails)
 }
@@ -100,16 +108,47 @@ fn get_deliver_date(mail: &Message) -> String {
 
 fn parse_message(message: &Fetch) -> Email {
     let body_raw = message.body().expect("message did not have a body!");
-    let body = body_raw.iter().map(|&c| c as char).collect::<String>();
-    let mail = MessageParser::new().parse(&body).unwrap();
+    let temp_body = body_raw.iter().map(|&c| c as char).collect::<String>();
+    let raw_mail = MessageParser::default().parse(&temp_body).unwrap();
+
+    let mut decoded_body = "".to_string();
+
+    let header = raw_mail.headers().iter().find(|h| h.name().eq("Content-Type"));
+    if header.is_some() {
+        let header_value = header.unwrap().value();
+        let content_type = header_value.as_content_type().unwrap();
+        let c_type = content_type.c_type.clone();
+        let mut content_type = "".to_string();
+        content_type.push_str(&c_type);
+        
+        if content_type.len() > 0 {
+            println!("Content-Type: {}", content_type);
+            let decoder = charset_decoder(content_type.as_bytes());
+            if decoder.is_some() {
+                decoded_body = decoder.unwrap()(body_raw);
+            } else {
+                println!("Failed to find decoder for {}", content_type);
+            }
+        }
+    }
+
+    let mail_body = if decoded_body.len() > 0 {
+        decoded_body
+    } else {
+        temp_body
+    };
+
+    let mail = MessageParser::default().parse(&mail_body).unwrap();
 
     let delivered_at = get_deliver_date(&mail);
-
-    let addresses = mail.from().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
+    let from_addresses = mail.from().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
+    let to_addresses = mail.to().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
 
     let mail = Email {
+        id: mail.message_id().unwrap().to_string(),
         delivered_at,
-        to: addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>().join(", "),
+        from: from_addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>(),
+        to: to_addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>(),
         subject: mail.subject().unwrap().to_string(),
         body: mail.body_html(0).unwrap().to_string(),
     };

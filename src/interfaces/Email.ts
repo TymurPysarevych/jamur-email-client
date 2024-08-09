@@ -4,5 +4,5 @@ export interface Email {
     to: Array<string>,
     from: Array<string>,
     subject: string,
-    body: string,
+    body: Array<string>,
 }

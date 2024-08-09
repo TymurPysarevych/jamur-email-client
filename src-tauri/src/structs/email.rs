@@ -8,5 +8,5 @@ pub struct Email {
     pub(crate) from: Vec<String>,
     pub(crate) to: Vec<String>,
     pub(crate) subject: String,
-    pub(crate) body: String,
+    pub(crate) body: Vec<String>,
 }

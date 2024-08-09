@@ -14,8 +14,8 @@ function App() {
             .catch((e) => console.error(e))
     }
 
-    const sanitize = (html: string) => {
-        return DOMPurify.sanitize(html, {USE_PROFILES: {html: true}});
+    const sanitize = (html: Array<string>) => {
+        return DOMPurify.sanitize(html.join(), {USE_PROFILES: {html: true}});
     }
 
     return (

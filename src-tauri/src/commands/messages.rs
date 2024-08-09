@@ -1,19 +1,21 @@
 extern crate chrono;
+extern crate encoding_rs;
 extern crate imap;
 extern crate native_tls;
 
 use std::net::TcpStream;
+use std::string::ToString;
 use std::time::{Duration, UNIX_EPOCH};
 
+use crate::structs::email::Email;
 use chrono::prelude::DateTime;
 use chrono::Utc;
 use dotenv::dotenv;
-use imap::{Client, Session};
+use encoding_rs::*;
 use imap::types::Fetch;
-use mail_parser::{decoders::charsets::map::charset_decoder, Header, Message, MessageParser};
+use imap::{Client, Session};
+use mail_parser::{BodyPartIterator, Header, Message, MessageParser};
 use native_tls::{TlsConnector, TlsStream};
-
-use crate::structs::email::Email;
 
 #[tauri::command]
 pub async fn fetch_messages(server: String, login: String, password: String) -> Result<Vec<Email>, ()> {
@@ -103,54 +105,54 @@ fn get_deliver_date(mail: &Message) -> String {
         let datetime = DateTime::<Utc>::from(d);
         return datetime.format("%d-%m-%Y %H:%M:%S").to_string();
     }
-    return "".to_string();
+    "".to_string()
 }
 
 fn parse_message(message: &Fetch) -> Email {
     let body_raw = message.body().expect("message did not have a body!");
-    let temp_body = body_raw.iter().map(|&c| c as char).collect::<String>();
-    let raw_mail = MessageParser::default().parse(&temp_body).unwrap();
+    let message = decode_message(body_raw);
 
-    let mut decoded_body = "".to_string();
+    let mut bodies = vec![];
 
-    let header = raw_mail.headers().iter().find(|h| h.name().eq("Content-Type"));
-    if header.is_some() {
-        let header_value = header.unwrap().value();
-        let content_type = header_value.as_content_type().unwrap();
-        let c_type = content_type.c_type.clone();
-        let mut content_type = "".to_string();
-        content_type.push_str(&c_type);
-        
-        if content_type.len() > 0 {
-            println!("Content-Type: {}", content_type);
-            let decoder = charset_decoder(content_type.as_bytes());
-            if decoder.is_some() {
-                decoded_body = decoder.unwrap()(body_raw);
-            } else {
-                println!("Failed to find decoder for {}", content_type);
-            }
-        }
+    if message.html_body_count().gt(&0) {
+        let html_bodies = fetch_bodies(message.html_bodies());
+        bodies.extend(html_bodies);
+    } else if message.text_body_count().gt(&0) {
+        let text_bodies = fetch_bodies(message.text_bodies());
+        bodies.extend(text_bodies);
     }
 
-    let mail_body = if decoded_body.len() > 0 {
-        decoded_body
-    } else {
-        temp_body
-    };
-
-    let mail = MessageParser::default().parse(&mail_body).unwrap();
-
-    let delivered_at = get_deliver_date(&mail);
-    let from_addresses = mail.from().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
-    let to_addresses = mail.to().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
+    let delivered_at = get_deliver_date(&message);
+    let from_addresses = message.from().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
+    let to_addresses = message.to().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
 
     let mail = Email {
-        id: mail.message_id().unwrap().to_string(),
+        id: message.message_id().unwrap().to_string(),
         delivered_at,
         from: from_addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>(),
         to: to_addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>(),
-        subject: mail.subject().unwrap().to_string(),
-        body: mail.body_html(0).unwrap().to_string(),
+        subject: message.subject().unwrap().to_string(),
+        body: bodies,
     };
     mail
+}
+
+fn decode_message(body_raw: &[u8]) -> Message {
+    let mail = MessageParser::default().parse(body_raw).ok_or_else(|| {
+        println!("Failed to parse message");
+    }).unwrap();
+
+    mail.into_owned()
+}
+
+fn fetch_bodies(iterator: BodyPartIterator) -> Vec<String> {
+    let mut bodies = vec![];
+
+    iterator.for_each(|b| {
+        let body = b.contents();
+        let (cow, _, _) = UTF_8.decode(&body);
+        bodies.push(cow.to_string());
+    });
+
+    bodies
 }

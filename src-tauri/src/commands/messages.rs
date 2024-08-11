@@ -3,55 +3,65 @@ extern crate encoding_rs;
 extern crate imap;
 extern crate native_tls;
 
+use base64::{engine::general_purpose, Engine as _};
+use std::env::var;
 use std::net::TcpStream;
+use std::ops::Index;
 use std::string::ToString;
 use std::time::{Duration, UNIX_EPOCH};
 
-use crate::structs::email::Email;
+use crate::structs::email::{Attachment, Email};
 use chrono::prelude::DateTime;
 use chrono::Utc;
 use dotenv::dotenv;
 use encoding_rs::*;
 use imap::types::Fetch;
 use imap::{Client, Session};
-use mail_parser::{BodyPartIterator, Header, Message, MessageParser};
+use log::{error, info};
+use mail_parser::{AttachmentIterator, BodyPartIterator, Header, Message, MessageParser, MessagePartId, MimeHeaders};
 use native_tls::{TlsConnector, TlsStream};
 
 #[tauri::command]
-pub async fn fetch_messages(server: String, login: String, password: String) -> Result<Vec<Email>, ()> {
+pub async fn fetch_messages(_server: String, _login: String, _password: String) -> Result<Vec<Email>, ()> {
     dotenv().ok();
-    let env_server = std::env::var("SERVER").expect("SERVER must be set.");
-    let env_login = std::env::var("LOGIN").expect("LOGIN must be set.");
-    let env_password = std::env::var("PASSWORD").expect("PASSWORD must be set.");
+    let env_server = var("SERVER").expect("SERVER must be set.");
+    let env_login = var("LOGIN").expect("LOGIN must be set.");
+    let env_password = var("PASSWORD").expect("PASSWORD must be set.");
 
     let mut imap_session = open_imap_session(&env_server, &env_login, &env_password).await;
 
     let messages_stream = imap_session.fetch("1:*", "RFC822").ok();
+    info!("fetched messages");
+    imap_session.logout().ok();
+    info!("logged out");
 
     let messages = messages_stream.unwrap();
 
-    let web_emails: Vec<Email> = messages.iter()
-        .map(|message| {
-            parse_message(message)
-        }).collect::<Vec<Email>>();
+    // let mut web_emails: Vec<Email> = messages.iter()
+    //     .map(|message| {
+    //         parse_message(message)
+    //     }).collect::<Vec<Email>>();
+    // // web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
+    //
+    // Ok(web_emails)
 
-    imap_session.logout().ok();
+    let mail = parse_message(messages.index(messages.len() - 3));
 
-    Ok(web_emails)
+    Ok(vec![mail])
 }
 
 #[tauri::command]
-pub async fn fetch_by_query(server: String, login: String, password: String, since: String) -> Result<Vec<Email>, ()> {
+pub async fn fetch_by_query(_server: String, _login: String, _password: String, since: String) -> Result<Vec<Email>, ()> {
     dotenv().ok();
-    let env_server = std::env::var("SERVER").expect("SERVER must be set.");
-    let env_login = std::env::var("LOGIN").expect("LOGIN must be set.");
-    let env_password = std::env::var("PASSWORD").expect("PASSWORD must be set.");
+    let env_server = var("SERVER").expect("SERVER must be set.");
+    let env_login = var("LOGIN").expect("LOGIN must be set.");
+    let env_password = var("PASSWORD").expect("PASSWORD must be set.");
     let mut imap_session = open_imap_session(env_server.as_str(), env_login.as_str(), env_password.as_str()).await;
 
     // since = 20-Jul-2024
 
     let uids = imap_session.uid_search(format!("SEEN SINCE {}", since)).unwrap();
-    println!("-- {} messages seen since {}", uids.len(), since);
+    info!("{} messages seen since {}", uids.len(), since);
 
     let mut web_emails: Vec<Email> = vec![];
 
@@ -77,10 +87,11 @@ async fn open_imap_session(server: &str, login: &str, password: &str) -> Session
     let tls_stream = tls.connect(server, tcp_stream).unwrap();
 
     let client = Client::new(tls_stream);
-    println!("-- connected to {}:{}", imap_addr.0, imap_addr.1);
+    info!("connected to {}:{}", imap_addr.0, imap_addr.1);
 
     let mut imap_session = client.login(login, password).unwrap();
 
+    info!("fetching messages from INBOX");
     imap_session.select("INBOX").unwrap();
     imap_session
 }
@@ -122,6 +133,8 @@ fn parse_message(message: &Fetch) -> Email {
         bodies.extend(text_bodies);
     }
 
+    let attachments = build_attachments(&message);
+
     let delivered_at = get_deliver_date(&message);
     let from_addresses = message.from().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
     let to_addresses = message.to().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
@@ -133,8 +146,39 @@ fn parse_message(message: &Fetch) -> Email {
         to: to_addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>(),
         subject: message.subject().unwrap().to_string(),
         body: bodies,
+        attachments,
     };
     mail
+}
+
+fn build_attachments(message: &Message) -> Vec<Attachment> {
+    let mut attachments: Vec<Attachment> = vec![];
+
+    message.attachments.iter().for_each(|attachment_index| {
+        let optional_part = message.parts.get(*attachment_index);
+        if optional_part.is_some() {
+            let mut filename = "".to_string();
+
+            let part = optional_part.unwrap();
+
+            let optional_content_id = part.headers.iter().find(|header| header.name().eq("Content-ID"));
+            if optional_content_id.is_some() {
+                filename = optional_content_id.unwrap().value.as_text().unwrap().to_string();
+            }
+
+            let encoding = part.content_transfer_encoding().or(Some("")).unwrap().to_string();
+
+            let content = general_purpose::STANDARD.encode(&part.contents());
+
+            attachments.push(Attachment {
+                filename,
+                content: content.to_string(),
+                encoding,
+            });
+        }
+    });
+
+    attachments
 }
 
 fn decode_message(body_raw: &[u8]) -> Message {

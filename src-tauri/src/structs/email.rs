@@ -9,4 +9,13 @@ pub struct Email {
     pub(crate) to: Vec<String>,
     pub(crate) subject: String,
     pub(crate) body: Vec<String>,
+    pub(crate) attachments: Vec<Attachment>,
+}
+
+#[derive(Deserialize)]
+#[derive(Serialize)]
+pub struct Attachment {
+    pub(crate) filename: String,
+    pub(crate) content: String, // base64 encoded
+    pub(crate) encoding: String,
 }

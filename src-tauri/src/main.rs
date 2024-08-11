@@ -7,6 +7,8 @@ mod commands;
 mod structs;
 
 fn main() {
+    std::env::set_var("RUST_LOG", "info");
+    env_logger::init();
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![fetch_messages, fetch_by_query])
         .run(tauri::generate_context!())

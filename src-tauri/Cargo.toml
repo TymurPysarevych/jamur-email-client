@@ -18,6 +18,9 @@ mail-parser = { git = "https://github.com/TymurPysarevych/mail-parser"}
 chrono = "0.4.38"
 dotenv = "0.15.0"
 encoding_rs = "0.8.34"
+log = "0.4.22"
+env_logger = "0.11.5"
+base64 = "0.22.1"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

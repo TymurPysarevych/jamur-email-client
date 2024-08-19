@@ -3,7 +3,6 @@ extern crate encoding_rs;
 extern crate imap;
 extern crate native_tls;
 
-use base64::{engine::general_purpose, Engine as _};
 use std::env::var;
 use std::net::TcpStream;
 use std::string::ToString;

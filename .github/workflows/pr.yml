@@ -49,9 +49,6 @@ jobs:
         # webkitgtk 4.0 is for Tauri v1 - webkitgtk 4.1 is for Tauri v2.
         # You can remove the one that doesn't apply to your app to speed up the workflow a bit.
 
-      - name: install frontend dependencies
-        run: pnpm install
-
       # If tagName and releaseId are omitted tauri-action will only build the app and won't try to upload any assets.
       - uses: tauri-apps/tauri-action@v0
         env:

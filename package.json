@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "tsc && pnpm vite build",
     "preview": "vite preview",
-    "tauri": "tauri dev -v"
+    "tauri": "tauri dev -v",
+    "tauri-build": "tauri build"
   },
   "dependencies": {
     "react": "18.2.0",

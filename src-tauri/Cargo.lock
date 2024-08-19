@@ -1457,6 +1457,7 @@ dependencies = [
  "log",
  "mail-parser",
  "native-tls",
+ "regex",
  "serde",
  "serde_json",
  "tauri",

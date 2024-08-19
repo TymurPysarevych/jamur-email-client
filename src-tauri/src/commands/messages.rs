@@ -6,7 +6,6 @@ extern crate native_tls;
 use base64::{engine::general_purpose, Engine as _};
 use std::env::var;
 use std::net::TcpStream;
-use std::ops::Index;
 use std::string::ToString;
 use std::time::{Duration, UNIX_EPOCH};
 
@@ -17,9 +16,10 @@ use dotenv::dotenv;
 use encoding_rs::*;
 use imap::types::Fetch;
 use imap::{Client, Session};
-use log::{error, info};
-use mail_parser::{AttachmentIterator, BodyPartIterator, Header, Message, MessageParser, MessagePartId, MimeHeaders};
+use log::info;
+use mail_parser::{BodyPartIterator, Header, Message, MessageParser, MimeHeaders};
 use native_tls::{TlsConnector, TlsStream};
+use regex::Regex;
 
 #[tauri::command]
 pub async fn fetch_messages(_server: String, _login: String, _password: String) -> Result<Vec<Email>, ()> {
@@ -37,17 +37,13 @@ pub async fn fetch_messages(_server: String, _login: String, _password: String) 
 
     let messages = messages_stream.unwrap();
 
-    // let mut web_emails: Vec<Email> = messages.iter()
-    //     .map(|message| {
-    //         parse_message(message)
-    //     }).collect::<Vec<Email>>();
-    // // web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
-    //
-    // Ok(web_emails)
+    let web_emails: Vec<Email> = messages.iter()
+        .map(|message| {
+            parse_message(message)
+        }).collect::<Vec<Email>>();
+    // web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
 
-    let mail = parse_message(messages.index(messages.len() - 3));
-
-    Ok(vec![mail])
+    Ok(web_emails)
 }
 
 #[tauri::command]
@@ -161,9 +157,21 @@ fn build_attachments(message: &Message) -> Vec<Attachment> {
 
             let part = optional_part.unwrap();
 
-            let optional_content_id = part.headers.iter().find(|header| header.name().eq("Content-ID"));
-            if optional_content_id.is_some() {
-                filename = optional_content_id.unwrap().value.as_text().unwrap().to_string();
+            for header in part.headers.iter() {
+                if header.name().eq("Content-Type") {
+                    let optional_header_content_type = header.value.as_content_type();
+                    if optional_header_content_type.is_some() {
+                        let optional_attributes = optional_header_content_type.unwrap().attributes();
+                        if optional_attributes.is_some() {
+                            let attributes = optional_attributes.unwrap();
+                            let filename_attribute = attributes.iter().find(|a| a.0.eq("name"));
+                            if filename_attribute.is_some() {
+                                filename = filename_attribute.unwrap().1.to_string();
+                                break;
+                            }
+                        }
+                    }
+                }
             }
 
             let encoding = part.content_transfer_encoding().or(Some("")).unwrap().to_string();
@@ -195,6 +203,10 @@ fn fetch_bodies(iterator: BodyPartIterator) -> Vec<String> {
     iterator.for_each(|b| {
         let body = b.contents();
         let (cow, _, _) = UTF_8.decode(&body);
+        let regex = Regex::new(r#"src="cid:[^"]*\.[a-zA-Z0-9]{3,4}""#).unwrap();
+        let cid_results = regex.captures_iter(&cow).map(|cap| cap[0].to_string()).collect::<Vec<String>>();
+        println!("{:?}", cid_results);
+
         bodies.push(cow.to_string());
     });
 

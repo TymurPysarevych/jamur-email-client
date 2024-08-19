@@ -176,11 +176,9 @@ fn build_attachments(message: &Message) -> Vec<Attachment> {
 
             let encoding = part.content_transfer_encoding().or(Some("")).unwrap().to_string();
 
-            let content = general_purpose::STANDARD.encode(&part.contents());
-
             attachments.push(Attachment {
                 filename,
-                content: content.to_string(),
+                content: part.contents().to_vec(),
                 encoding,
             });
         }
@@ -205,7 +203,6 @@ fn fetch_bodies(iterator: BodyPartIterator) -> Vec<String> {
         let (cow, _, _) = UTF_8.decode(&body);
         let regex = Regex::new(r#"src="cid:[^"]*\.[a-zA-Z0-9]{3,4}""#).unwrap();
         let cid_results = regex.captures_iter(&cow).map(|cap| cap[0].to_string()).collect::<Vec<String>>();
-        println!("{:?}", cid_results);
 
         bodies.push(cow.to_string());
     });

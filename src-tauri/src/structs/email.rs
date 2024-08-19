@@ -16,6 +16,6 @@ pub struct Email {
 #[derive(Serialize)]
 pub struct Attachment {
     pub(crate) filename: String,
-    pub(crate) content: String, // base64 encoded
+    pub(crate) content: Vec<u8>, // base64 encoded
     pub(crate) encoding: String,
 }

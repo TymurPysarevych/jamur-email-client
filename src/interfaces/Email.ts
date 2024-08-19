@@ -5,4 +5,11 @@ export interface Email {
     from: Array<string>,
     subject: string,
     body: Array<string>,
+    attachments: Array<EmailAttachment>,
+}
+
+export interface EmailAttachment {
+    filename: string,
+    content: Array<number>,
+    encoding: string,
 }

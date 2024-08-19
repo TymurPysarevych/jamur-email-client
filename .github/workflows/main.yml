@@ -33,6 +33,8 @@ jobs:
         with:
           node-version: lts/*
           cache: pnpm
+
+      - name: install frontend dependencies
         run: pnpm install
 
       - name: install Rust stable

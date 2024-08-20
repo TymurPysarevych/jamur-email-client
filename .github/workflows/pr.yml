@@ -59,8 +59,8 @@ jobs:
           name: ${{ matrix.platform }}
           path: |
             /Users/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.dmg
-            /Users/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.exe
-            /Users/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.msi
-            /Users/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.deb
-            /Users/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.rpm
-            /Users/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.AppImage
+            D:\a\jamur-email-client\jamur-email-client\src-tauri\target\**\*.exe
+            D:\a\jamur-email-client\jamur-email-client\src-tauri\target\**\*.msi
+            /home/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.deb
+            /home/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.rpm
+            /home/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.AppImage

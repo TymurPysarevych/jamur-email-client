@@ -1,4 +1,4 @@
-name: "test-on-pr"
+name: 'pull-request-check'
 
 on: [ pull_request ]
 
@@ -23,19 +23,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: setup pnpm
+      - name: 🛠pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
-      - name: setup node
+
+      - name: 🛠node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: 'pnpm'
-      - name: install dependencies
+          cache: "pnpm"
+
+      - name: install ✨dependencies
         run: pnpm install
 
-      - name: install Rust stable
+      - name: install 🦀stable
         uses: dtolnay/rust-toolchain@stable
         with:
           # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
@@ -49,6 +51,8 @@ jobs:
         # webkitgtk 4.0 is for Tauri v1 - webkitgtk 4.1 is for Tauri v2.
         # You can remove the one that doesn't apply to your app to speed up the workflow a bit.
 
-      # If tagName and releaseId are omitted tauri-action will only build the app and won't try to upload any assets.
-      - name: build
-        run: pnpm tauri-build ${{ matrix.args }}
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: ${{ matrix.args }}

@@ -23,16 +23,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      #      - name: setup pnpm
-      #        uses: pnpm/action-setup@v4
-      #        with:
-      #          version: 9
+      - name: setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - name: setup node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
+          cache: "pnpm"
+
       - name: install dependencies
-        run: npm install
+        run: pnpm install
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -48,8 +51,10 @@ jobs:
         # webkitgtk 4.0 is for Tauri v1 - webkitgtk 4.1 is for Tauri v2.
         # You can remove the one that doesn't apply to your app to speed up the workflow a bit.
 
-      - uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: build tauri
+        run: pnpm tauri build ${{ matrix.args }}
+
+      - uses: actions/upload-artifact@v4
         with:
-          args: ${{ matrix.args }}
+          name: ${{ matrix.platform }}
+          path: "src-tauri/target/release/bundle"

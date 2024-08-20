@@ -52,7 +52,7 @@ jobs:
         # You can remove the one that doesn't apply to your app to speed up the workflow a bit.
 
       - name: build tauri
-        run: pnpm tauri build ${{ matrix.args }}
+        run: pnpm tauri-build ${{ matrix.args }}
 
       - uses: actions/upload-artifact@v4
         with:

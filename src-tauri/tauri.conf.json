@@ -1,13 +1,13 @@
 {
   "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build",
     "devPath": "http://localhost:1420",
     "distDir": "../dist"
   },
   "package": {
-    "productName": "Jamur",
-    "version": "0.0.1"
+    "productName": "jamur-email-client",
+    "version": "0.0.0"
   },
   "tauri": {
     "allowlist": {

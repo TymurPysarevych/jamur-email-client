@@ -57,4 +57,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform }}
-          path: "/**/release/bundle/**"
+          path: "/Users/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/release/bundle/**"

@@ -1,11 +1,13 @@
-name: "test-on-pr"
+name: 'publish-pr'
 
 on: [ pull_request ]
 
 # This workflow will build your tauri app without uploading it anywhere.
 
 jobs:
-  test-tauri:
+  publish-tauri:
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -23,21 +25,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: setup pnpm
+      - name: 🛠pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      - name: setup node
+      - name: 🛠node
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
           cache: "pnpm"
 
-      - name: install dependencies
+      - name: install ✨dependencies
         run: pnpm install
 
-      - name: install Rust stable
+      - name: install 🦀stable
         uses: dtolnay/rust-toolchain@stable
         with:
           # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
@@ -68,7 +70,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: app-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
+          tagName: pr-${{ github.run_id }}-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
           releaseName: 'App v__VERSION__'
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: 'true'

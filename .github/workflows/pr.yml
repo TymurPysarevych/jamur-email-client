@@ -54,13 +54,13 @@ jobs:
       - name: build tauri
         run: pnpm tauri-build ${{ matrix.args }}
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.platform }}
-          path: |
-            /Users/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.dmg
-            D:\a\jamur-email-client\jamur-email-client\src-tauri\target\**\*.exe
-            D:\a\jamur-email-client\jamur-email-client\src-tauri\target\**\*.msi
-            /home/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.deb
-            /home/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.rpm
-            /home/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.AppImage
+#      - uses: actions/upload-artifact@v4
+#        with:
+#          name: ${{ matrix.platform }}
+#          path: |
+#            /Users/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.dmg
+#            D:\a\jamur-email-client\jamur-email-client\src-tauri\target\**\*.exe
+#            D:\a\jamur-email-client\jamur-email-client\src-tauri\target\**\*.msi
+#            /home/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.deb
+#            /home/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.rpm
+#            /home/runner/work/jamur-email-client/jamur-email-client/src-tauri/target/**/*.AppImage

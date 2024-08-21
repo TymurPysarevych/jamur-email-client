@@ -1,13 +1,11 @@
-name: 'publish-pr'
+name: 'pull-request-check'
 
 on: [ pull_request ]
 
 # This workflow will build your tauri app without uploading it anywhere.
 
 jobs:
-  publish-tauri:
-    permissions:
-      contents: write
+  test-tauri:
     strategy:
       fail-fast: false
       matrix:
@@ -57,9 +55,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: pr-${{ github.run_id }}-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
-          releaseName: 'App v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: true
-          prerelease: false
           args: ${{ matrix.args }}

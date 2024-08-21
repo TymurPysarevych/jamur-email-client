@@ -1,14 +1,13 @@
 {
-  "name": "jamur-email-client",
+  "name": "jamur",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && pnpm vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri dev -v",
-    "tauri-build": "tauri build"
+    "tauri": "tauri"
   },
   "dependencies": {
     "react": "18.2.0",

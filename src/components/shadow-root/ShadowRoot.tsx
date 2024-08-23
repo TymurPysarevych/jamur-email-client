@@ -1,3 +1,5 @@
+import {open} from '@tauri-apps/api/shell';
+
 export default function ShadowRoot({child}: { child: JSX.Element }) {
 
     const attachShadow = (host: any) => {
@@ -15,9 +17,13 @@ export default function ShadowRoot({child}: { child: JSX.Element }) {
         }
 
         children[0].querySelectorAll("a").forEach((anchor) => {
-            anchor.onclick = (event) => {
+            anchor.onclick = async (event) => {
                 event.preventDefault();
-                // TODO open from rust
+                const href = anchor.getAttribute("href");
+                if (href === null || href === "" || href === undefined) {
+                    return;
+                }
+                await open(href);
             }
         });
     }

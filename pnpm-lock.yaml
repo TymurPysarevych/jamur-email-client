@@ -11,9 +11,6 @@ importers:
       '@tauri-apps/api':
         specifier: 1.6.0
         version: 1.6.0
-      dompurify:
-        specifier: 3.1.6
-        version: 3.1.6
       react:
         specifier: 18.2.0
         version: 18.2.0
@@ -529,9 +526,6 @@ packages:
     peerDependenciesMeta:
       supports-color:
         optional: true
-
-  dompurify@3.1.6:
-    resolution: {integrity: sha512-cTOAhc36AalkjtBpfG6O8JimdTMWNXjiePT2xQH/ppBGi/4uIpmj8eKyIkMJErXWARyINV/sB38yf8JCLF5pbQ==}
 
   electron-to-chromium@1.5.1:
     resolution: {integrity: sha512-FKbOCOQ5QRB3VlIbl1LZQefWIYwszlBloaXcY2rbfpu9ioJnNh3TK03YtIDKDo3WKBi8u+YV4+Fn2CkEozgf4w==}
@@ -1097,8 +1091,6 @@ snapshots:
   debug@4.3.5:
     dependencies:
       ms: 2.1.2
-
-  dompurify@3.1.6: {}
 
   electron-to-chromium@1.5.1: {}
 

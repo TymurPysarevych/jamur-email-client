@@ -12,10 +12,10 @@ use dotenv::dotenv;
 use encoding_rs::*;
 use imap::types::Fetch;
 use imap::{Client, Session};
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use mail_parser::{BodyPartIterator, Header, Message, MessageParser, MimeHeaders};
 use native_tls::{TlsConnector, TlsStream};
-use regex::Regex;
+use regex::{Captures, Match, Regex};
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::env::var;
@@ -44,7 +44,6 @@ pub async fn fetch_messages(_server: String, _login: String, _password: String) 
             parse_message(message)
         }).collect::<Vec<Email>>();
     // web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
-
     Ok(web_emails)
 }
 
@@ -151,30 +150,61 @@ fn parse_message(message: &Fetch) -> Email {
 }
 
 fn replace_images(mut body: String, mut attachments: Vec<Attachment>) -> (String, Vec<Attachment>) {
-    let regex = Regex::new(r#"src="cid:[^"]*\.[a-zA-Z0-9]{3,4}""#).unwrap();
+    let regex = match Regex::new(r#"src="cid:[^"]*""#) {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("Failed to compile regex: {e}");
+            return (body.clone(), attachments.clone());
+        }
+    };
+
+    let mut caps = regex.captures_iter(&*body).map(|cap| cap[0].to_string()).collect::<HashSet<String>>();
+    let file_regex = match Regex::new(r#":([^@]+)@*"#) {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("Failed to compile regex: {e}");
+            return (body.clone(), attachments.clone());
+        }
+    };
+
 
     let mut replaced_body = "".to_string();
-    let mut caps = regex.captures_iter(&*body).map(|cap| cap[0].to_string()).collect::<HashSet<String>>();
-    caps.into_iter().for_each(|cid| {
+    let mut attachments_to_be_deleted: HashSet<Attachment> = HashSet::new();
+    caps.into_iter().for_each(|cap| {
         replaced_body = body.clone();
-        let clean_cid = cid.replace("src=\"cid:", "").replace("\"", "");
+
+        let filename_captures = match file_regex.captures(&*cap) {
+            None => {
+                error!("Failed to find filename in {cap}");
+                return;
+            }
+            Some(f) => f,
+        };
+
+        let filename = match filename_captures.get(1) {
+            None => "".to_string(),
+            Some(f) => f.as_str().to_string(),
+        };
+
+        let clean_cid = filename.replace("\"", "");
 
         let file_ending = clean_cid.split(".").last().unwrap();
 
-        let optional_attachment = attachments.iter().find(|a| a.filename.eq(&clean_cid));
+        let optional_attachment = attachments.iter().find(|a| clean_cid.contains(a.filename.as_str()) || clean_cid.contains(a.content_id.as_str()));
         if optional_attachment.is_some() {
             let attachment = optional_attachment.unwrap();
             let content = general_purpose::STANDARD.encode(&attachment.content);
 
             let cid_replacement = format!("src=\"data:image/{};base64,{}\"", file_ending, content);
-            replaced_body = body.replace(&cid, &cid_replacement);
+            replaced_body = body.replace(&cap, &cid_replacement);
             body = replaced_body.clone();
-            attachments = attachments.iter().cloned().filter(|a| !(a.filename == clean_cid)).collect::<Vec<Attachment>>();
+            attachments_to_be_deleted.insert(attachment.clone());
         } else {
-            debug!("Attachment with cid {clean_cid} not found");
+            warn!("Attachment with cid {clean_cid} not found");
             replaced_body = body.clone();
         }
     });
+    attachments.retain(|a| !attachments_to_be_deleted.contains(a));
     (body.clone(), attachments.clone())
 }
 
@@ -185,6 +215,7 @@ fn build_attachments(message: &Message) -> Vec<Attachment> {
         let optional_part = message.parts.get(*attachment_index);
         if optional_part.is_some() {
             let mut filename = "".to_string();
+            let mut content_id = "".to_string();
 
             let part = optional_part.unwrap();
 
@@ -198,10 +229,20 @@ fn build_attachments(message: &Message) -> Vec<Attachment> {
                             let filename_attribute = attributes.iter().find(|a| a.0.eq("name"));
                             if filename_attribute.is_some() {
                                 filename = filename_attribute.unwrap().1.to_string();
-                                break;
                             }
                         }
                     }
+                } else if header.name().eq("Content-ID") {
+                    let optional_header_content_id = header.value.as_text_list();
+                    if optional_header_content_id.is_some() {
+                        content_id = match optional_header_content_id.unwrap().first() {
+                            None => { panic!("Content-ID header was empty") }
+                            Some(s) => s.to_string(),
+                        }
+                    }
+                }
+                if !filename.is_empty() && !content_id.is_empty() {
+                    break;
                 }
             }
 
@@ -209,6 +250,7 @@ fn build_attachments(message: &Message) -> Vec<Attachment> {
 
             attachments.push(Attachment {
                 filename,
+                content_id,
                 content: part.contents().to_vec(),
                 encoding,
             });

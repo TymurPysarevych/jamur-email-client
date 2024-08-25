@@ -28,6 +28,5 @@ export default function ShadowRoot({child}: { child: JSX.Element }) {
         });
     }
 
-
     return <span ref={attachShadow}>{child}</span>;
 }

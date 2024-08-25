@@ -8,12 +8,11 @@ pub struct Email {
     pub(crate) from: Vec<String>,
     pub(crate) to: Vec<String>,
     pub(crate) subject: String,
-    pub(crate) body: Vec<String>,
+    pub(crate) bodies: Vec<String>,
     pub(crate) attachments: Vec<Attachment>,
 }
 
-#[derive(Deserialize)]
-#[derive(Serialize)]
+#[derive(Eq, Hash, PartialEq, Deserialize, Serialize, Clone)]
 pub struct Attachment {
     pub(crate) filename: String,
     pub(crate) content: Vec<u8>, // base64 encoded

@@ -12,7 +12,7 @@ export default function EmailComponent({email}: EmailComponentProps) {
             <h1>{email.subject}</h1>
             <p>From: {email.from.join(", ")}</p>
             <p>To: {email.to.join(", ")}</p>
-            {email.body.map((body, index) => <EmailBody key={index} body={body}/>)}
+            {email.bodies.map((body, index) => <EmailBody key={index} body={body}/>)}
         </div>
     )
 }

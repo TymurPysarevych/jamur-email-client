@@ -200,7 +200,8 @@ fn replace_images(mut body: String, mut attachments: Vec<Attachment>) -> (String
             body = replaced_body.clone();
             attachments_to_be_deleted.insert(attachment.clone());
         } else {
-            warn!("Attachment with cid {clean_cid} not found");
+            // if this happens, the attachment was lost in the process. 
+            // Probably due to email servers not sending the attachment as expected.
             replaced_body = body.clone();
         }
     });

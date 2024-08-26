@@ -10,6 +10,7 @@ export interface Email {
 
 export interface EmailAttachment {
     filename: string,
+    content_id: string,
     content: Array<number>,
     encoding: string,
 }

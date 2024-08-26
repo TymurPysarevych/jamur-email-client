@@ -1,5 +1,5 @@
 import './EmailBody.css';
-import ShadowRoot from "./shadow-root/ShadowRoot.tsx";
+import ShadowRoot from "../../shadow-root/ShadowRoot.tsx";
 
 interface EmailBodyProps {
     body: string;

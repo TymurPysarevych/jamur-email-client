@@ -2,7 +2,7 @@ import {useState} from "react";
 import {invoke} from "@tauri-apps/api/tauri";
 import "./App.css";
 import {Email} from "./interfaces/Email.ts";
-import EmailComponent from "./components/EmailComponent.tsx";
+import EmailComponent from "./components/email/EmailComponent.tsx";
 
 export default function App() {
     const [emails, setEmails] = useState<Array<Email>>([]);

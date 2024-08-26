@@ -1,0 +1,29 @@
+.attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.attachment {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100px;
+    height: 120px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 5px 5px 0;
+    background-color: #f9f9f9;
+    text-align: center;
+    cursor: pointer;
+}
+
+.filename {
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.file-icon {
+    font-size: 50px;
+    color: #666;
+}

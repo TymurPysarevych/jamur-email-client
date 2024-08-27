@@ -13,9 +13,15 @@ export default function EmailAttachmentComponent({attachments}: EmailAttachmentP
     }
 
     function filename(filename: string) {
-        const maxFilenameLength = 15;
-        const fileExtension = filename.split('.').pop();
-        return filename.length > maxFilenameLength ? filename.substring(0, maxFilenameLength) + '... .' + fileExtension : filename
+        const maxFilenameLength = 50;
+        const filenameWithoutExtension = filename.split('.').slice(0, -1).join('.');
+        return filenameWithoutExtension.length > maxFilenameLength ? filenameWithoutExtension.substring(0, maxFilenameLength) + '...' : filenameWithoutExtension
+    }
+
+    function fileExtension(filename: string) {
+        const extension = filename.split('.').pop();
+        if (!extension) return '';
+        return extension.toUpperCase();
     }
 
     return (
@@ -23,7 +29,10 @@ export default function EmailAttachmentComponent({attachments}: EmailAttachmentP
             {attachments.map((attachment, index) => {
                 return (
                     <div key={index} className="attachment" onClick={() => createDownloadableAttachments(attachment)}>
-                        <div className="file-icon">📄</div>
+                        <div className="icon-container">
+                            <div className="icon">📄</div>
+                            <div className="file-extension">{fileExtension(attachment.filename)}</div>
+                        </div>
                         <div className="filename">{filename(attachment.filename)}</div>
                     </div>
                 );

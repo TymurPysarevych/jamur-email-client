@@ -11,8 +11,8 @@ export default function EmailComponent({email}: EmailComponentProps) {
     return (
         <div className="email">
             <h1>{email.subject}</h1>
-            <p>From: {email.from.join(", ")}</p>
-            <p>To: {email.to.join(", ")}</p>
+            <div>From: {email.from.join(", ")}</div>
+            <div>To: {email.to.join(", ")}</div>
             {email.bodies.map((body, index) => <EmailBody key={index} body={body}/>)}
             {<EmailAttachmentComponent attachments={email.attachments}/>}
         </div>

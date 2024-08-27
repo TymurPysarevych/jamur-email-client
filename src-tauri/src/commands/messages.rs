@@ -200,7 +200,7 @@ fn replace_images(mut body: String, mut attachments: Vec<Attachment>) -> (String
             body = replaced_body.clone();
             attachments_to_be_deleted.insert(attachment.clone());
         } else {
-            // if this happens, the attachment was lost in the process. 
+            // if this happens, the attachment was lost in the process.
             // Probably due to email servers not sending the attachment as expected.
             replaced_body = body.clone();
         }
@@ -221,13 +221,13 @@ fn build_attachments(message: &Message) -> Vec<Attachment> {
             let part = optional_part.unwrap();
 
             for header in part.headers.iter() {
-                if header.name().eq("Content-Type") {
+                if header.name().eq("Content-Type") || header.name().eq("Content-Disposition") {
                     let optional_header_content_type = header.value.as_content_type();
                     if optional_header_content_type.is_some() {
                         let optional_attributes = optional_header_content_type.unwrap().attributes();
                         if optional_attributes.is_some() {
                             let attributes = optional_attributes.unwrap();
-                            let filename_attribute = attributes.iter().find(|a| a.0.eq("name"));
+                            let filename_attribute = attributes.iter().find(|a| a.0.eq("name") || a.0.eq("filename"));
                             if filename_attribute.is_some() {
                                 filename = filename_attribute.unwrap().1.to_string();
                             }

@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Email {
     pub(crate) id: String,
     pub(crate) delivered_at: String,

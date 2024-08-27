@@ -12,11 +12,10 @@ use dotenv::dotenv;
 use encoding_rs::*;
 use imap::types::Fetch;
 use imap::{Client, Session};
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use mail_parser::{BodyPartIterator, Header, Message, MessageParser, MimeHeaders};
 use native_tls::{TlsConnector, TlsStream};
-use regex::{Captures, Match, Regex};
-use std::borrow::Cow;
+use regex::Regex;
 use std::collections::HashSet;
 use std::env::var;
 use std::net::TcpStream;
@@ -158,7 +157,7 @@ fn replace_images(mut body: String, mut attachments: Vec<Attachment>) -> (String
         }
     };
 
-    let mut caps = regex.captures_iter(&*body).map(|cap| cap[0].to_string()).collect::<HashSet<String>>();
+    let caps = regex.captures_iter(&*body).map(|cap| cap[0].to_string()).collect::<HashSet<String>>();
     let file_regex = match Regex::new(r#":([^@]+)@*"#) {
         Ok(r) => r,
         Err(e) => {

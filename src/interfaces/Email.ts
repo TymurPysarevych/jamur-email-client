@@ -4,12 +4,13 @@ export interface Email {
     to: Array<string>,
     from: Array<string>,
     subject: string,
-    body: Array<string>,
+    bodies: Array<string>,
     attachments: Array<EmailAttachment>,
 }
 
 export interface EmailAttachment {
     filename: string,
+    content_id: string,
     content: Array<number>,
     encoding: string,
 }

@@ -3,22 +3,24 @@ extern crate encoding_rs;
 extern crate imap;
 extern crate native_tls;
 
-use std::env::var;
-use std::net::TcpStream;
-use std::string::ToString;
-use std::time::{Duration, UNIX_EPOCH};
-
 use crate::structs::email::{Attachment, Email};
+use base64::engine::general_purpose;
+use base64::Engine;
 use chrono::prelude::DateTime;
 use chrono::Utc;
 use dotenv::dotenv;
 use encoding_rs::*;
 use imap::types::Fetch;
 use imap::{Client, Session};
-use log::info;
+use log::{error, info, warn};
 use mail_parser::{BodyPartIterator, Header, Message, MessageParser, MimeHeaders};
 use native_tls::{TlsConnector, TlsStream};
 use regex::Regex;
+use std::collections::HashSet;
+use std::env::var;
+use std::net::TcpStream;
+use std::string::ToString;
+use std::time::{Duration, UNIX_EPOCH};
 
 #[tauri::command]
 pub async fn fetch_messages(_server: String, _login: String, _password: String) -> Result<Vec<Email>, ()> {
@@ -41,7 +43,6 @@ pub async fn fetch_messages(_server: String, _login: String, _password: String) 
             parse_message(message)
         }).collect::<Vec<Email>>();
     // web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
-
     Ok(web_emails)
 }
 
@@ -118,17 +119,18 @@ fn parse_message(message: &Fetch) -> Email {
     let body_raw = message.body().expect("message did not have a body!");
     let message = decode_message(body_raw);
 
-    let mut bodies = vec![];
+    let all_attachments = build_attachments(&message);
+    let mut bodies: Vec<String> = vec![];
+    let mut attachments: Vec<Attachment> = vec![];
 
     if message.html_body_count().gt(&0) {
-        let html_bodies = fetch_bodies(message.html_bodies());
-        bodies.extend(html_bodies);
+        let html_bodies = fetch_html_bodies(message.html_bodies(), all_attachments);
+        bodies.extend(html_bodies.iter().map(|b| b.0.clone()).collect::<Vec<String>>());
+        attachments.extend(html_bodies.iter().flat_map(|b| b.1.clone()).collect::<HashSet<Attachment>>().into_iter().collect::<Vec<Attachment>>());
     } else if message.text_body_count().gt(&0) {
-        let text_bodies = fetch_bodies(message.text_bodies());
-        bodies.extend(text_bodies);
+        bodies.extend(fetch_text_bodies(message.text_bodies()));
+        attachments.extend(all_attachments);
     }
-
-    let attachments = build_attachments(&message);
 
     let delivered_at = get_deliver_date(&message);
     let from_addresses = message.from().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
@@ -140,10 +142,70 @@ fn parse_message(message: &Fetch) -> Email {
         from: from_addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>(),
         to: to_addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>(),
         subject: message.subject().unwrap().to_string(),
-        body: bodies,
+        bodies,
         attachments,
     };
     mail
+}
+
+fn replace_images(mut body: String, mut attachments: Vec<Attachment>) -> (String, Vec<Attachment>) {
+    let regex = match Regex::new(r#"src="cid:[^"]*""#) {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("Failed to compile regex: {e}");
+            return (body.clone(), attachments.clone());
+        }
+    };
+
+    let caps = regex.captures_iter(&*body).map(|cap| cap[0].to_string()).collect::<HashSet<String>>();
+    let file_regex = match Regex::new(r#":([^@]+)@*"#) {
+        Ok(r) => r,
+        Err(e) => {
+            warn!("Failed to compile regex: {e}");
+            return (body.clone(), attachments.clone());
+        }
+    };
+
+
+    let mut replaced_body = "".to_string();
+    let mut attachments_to_be_deleted: HashSet<Attachment> = HashSet::new();
+    caps.into_iter().for_each(|cap| {
+        replaced_body = body.clone();
+
+        let filename_captures = match file_regex.captures(&*cap) {
+            None => {
+                error!("Failed to find filename in {cap}");
+                return;
+            }
+            Some(f) => f,
+        };
+
+        let filename = match filename_captures.get(1) {
+            None => "".to_string(),
+            Some(f) => f.as_str().to_string(),
+        };
+
+        let clean_cid = filename.replace("\"", "");
+
+        let file_ending = clean_cid.split(".").last().unwrap();
+
+        let optional_attachment = attachments.iter().find(|a| clean_cid.contains(a.filename.as_str()) || clean_cid.contains(a.content_id.as_str()));
+        if optional_attachment.is_some() {
+            let attachment = optional_attachment.unwrap();
+            let content = general_purpose::STANDARD.encode(&attachment.content);
+
+            let cid_replacement = format!("src=\"data:image/{};base64,{}\"", file_ending, content);
+            replaced_body = body.replace(&cap, &cid_replacement);
+            body = replaced_body.clone();
+            attachments_to_be_deleted.insert(attachment.clone());
+        } else {
+            // if this happens, the attachment was lost in the process.
+            // Probably due to email servers not sending the attachment as expected.
+            replaced_body = body.clone();
+        }
+    });
+    attachments.retain(|a| !attachments_to_be_deleted.contains(a));
+    (body.clone(), attachments.clone())
 }
 
 fn build_attachments(message: &Message) -> Vec<Attachment> {
@@ -153,23 +215,34 @@ fn build_attachments(message: &Message) -> Vec<Attachment> {
         let optional_part = message.parts.get(*attachment_index);
         if optional_part.is_some() {
             let mut filename = "".to_string();
+            let mut content_id = "".to_string();
 
             let part = optional_part.unwrap();
 
             for header in part.headers.iter() {
-                if header.name().eq("Content-Type") {
+                if header.name().eq("Content-Type") || header.name().eq("Content-Disposition") {
                     let optional_header_content_type = header.value.as_content_type();
                     if optional_header_content_type.is_some() {
                         let optional_attributes = optional_header_content_type.unwrap().attributes();
                         if optional_attributes.is_some() {
                             let attributes = optional_attributes.unwrap();
-                            let filename_attribute = attributes.iter().find(|a| a.0.eq("name"));
+                            let filename_attribute = attributes.iter().find(|a| a.0.eq("name") || a.0.eq("filename"));
                             if filename_attribute.is_some() {
                                 filename = filename_attribute.unwrap().1.to_string();
-                                break;
                             }
                         }
                     }
+                } else if header.name().eq("Content-ID") {
+                    let optional_header_content_id = header.value.as_text_list();
+                    if optional_header_content_id.is_some() {
+                        content_id = match optional_header_content_id.unwrap().first() {
+                            None => { panic!("Content-ID header was empty") }
+                            Some(s) => s.to_string(),
+                        }
+                    }
+                }
+                if !filename.is_empty() && !content_id.is_empty() {
+                    break;
                 }
             }
 
@@ -177,6 +250,7 @@ fn build_attachments(message: &Message) -> Vec<Attachment> {
 
             attachments.push(Attachment {
                 filename,
+                content_id,
                 content: part.contents().to_vec(),
                 encoding,
             });
@@ -194,15 +268,23 @@ fn decode_message(body_raw: &[u8]) -> Message {
     mail.into_owned()
 }
 
-fn fetch_bodies(iterator: BodyPartIterator) -> Vec<String> {
+fn fetch_html_bodies(iterator: BodyPartIterator, attachments: Vec<Attachment>) -> Vec<(String, Vec<Attachment>)> {
+    let mut bodies: Vec<(String, Vec<Attachment>)> = vec![];
+
+    iterator.for_each(|b| {
+        let (cow, _, _) = UTF_8.decode(&b.contents());
+        bodies.push(replace_images(cow.to_string(), attachments.clone()));
+    });
+
+    bodies
+}
+
+fn fetch_text_bodies(iterator: BodyPartIterator) -> Vec<String> {
     let mut bodies = vec![];
 
     iterator.for_each(|b| {
         let body = b.contents();
         let (cow, _, _) = UTF_8.decode(&body);
-        let regex = Regex::new(r#"src="cid:[^"]*\.[a-zA-Z0-9]{3,4}""#).unwrap();
-        let cid_results = regex.captures_iter(&cow).map(|cap| cap[0].to_string()).collect::<Vec<String>>();
-
         bodies.push(cow.to_string());
     });
 

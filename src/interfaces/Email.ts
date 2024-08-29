@@ -1,6 +1,6 @@
 export interface Email {
     id: string,
-    delivered_at: string,
+    deliveredAt: string,
     to: Array<string>,
     from: Array<string>,
     subject: string,
@@ -10,7 +10,7 @@ export interface Email {
 
 export interface EmailAttachment {
     filename: string,
-    content_id: string,
+    contentId: string,
     content: Array<number>,
     encoding: string,
 }

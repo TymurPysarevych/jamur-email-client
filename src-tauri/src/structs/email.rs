@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Email {
     pub(crate) id: String,
     pub(crate) delivered_at: String,
@@ -12,6 +13,7 @@ pub struct Email {
 }
 
 #[derive(Eq, Hash, PartialEq, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Attachment {
     pub(crate) filename: String,
     pub(crate) content_id: String,

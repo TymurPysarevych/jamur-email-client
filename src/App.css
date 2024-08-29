@@ -8,3 +8,8 @@
 * {
     font-family: "Nunito", monospace !important;
 }
+
+body {
+    margin: 0;
+    padding: 0;
+}

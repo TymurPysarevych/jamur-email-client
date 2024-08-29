@@ -14,7 +14,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 imap = "2.4.1"
 native-tls = "0.2.12"
-mail-parser = { git = "https://github.com/TymurPysarevych/mail-parser" }
+mail-parser = { version = "0.9.3", features = ["encoding_rs"] }
 chrono = "0.4.38"
 dotenv = "0.15.0"
 encoding_rs = "0.8.34"

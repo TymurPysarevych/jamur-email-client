@@ -3,7 +3,7 @@ extern crate encoding_rs;
 extern crate imap;
 extern crate native_tls;
 
-use crate::structs::email::{Attachment, Email};
+use crate::structs::email::{WebAttachment, WebEmail};
 use base64::engine::general_purpose;
 use base64::Engine;
 use chrono::prelude::DateTime;
@@ -23,7 +23,7 @@ use std::string::ToString;
 use std::time::{Duration, UNIX_EPOCH};
 
 #[tauri::command]
-pub async fn fetch_messages(_server: String, _login: String, _password: String) -> Result<Vec<Email>, ()> {
+pub async fn fetch_messages(_server: String, _login: String, _password: String) -> Result<Vec<WebEmail>, ()> {
     dotenv().ok();
     let env_server = var("SERVER").expect("SERVER must be set.");
     let env_login = var("LOGIN").expect("LOGIN must be set.");
@@ -38,16 +38,16 @@ pub async fn fetch_messages(_server: String, _login: String, _password: String) 
 
     let messages = messages_stream.unwrap();
 
-    let web_emails: Vec<Email> = messages.iter()
+    let web_emails: Vec<WebEmail> = messages.iter()
         .map(|message| {
             parse_message(message)
-        }).collect::<Vec<Email>>();
+        }).collect::<Vec<WebEmail>>();
     // web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
     Ok(web_emails)
 }
 
 #[tauri::command]
-pub async fn fetch_by_query(_server: String, _login: String, _password: String, since: String) -> Result<Vec<Email>, ()> {
+pub async fn fetch_by_query(_server: String, _login: String, _password: String, since: String) -> Result<Vec<WebEmail>, ()> {
     dotenv().ok();
     let env_server = var("SERVER").expect("SERVER must be set.");
     let env_login = var("LOGIN").expect("LOGIN must be set.");
@@ -59,7 +59,7 @@ pub async fn fetch_by_query(_server: String, _login: String, _password: String, 
     let uids = imap_session.uid_search(format!("SEEN SINCE {}", since)).unwrap();
     info!("{} messages seen since {}", uids.len(), since);
 
-    let mut web_emails: Vec<Email> = vec![];
+    let mut web_emails: Vec<WebEmail> = vec![];
 
     for uid in uids {
         let messages_stream = imap_session.uid_fetch(format!("{}", uid), "BODY[]").ok();
@@ -115,18 +115,18 @@ fn get_deliver_date(mail: &Message) -> String {
     "".to_string()
 }
 
-fn parse_message(message: &Fetch) -> Email {
+fn parse_message(message: &Fetch) -> WebEmail {
     let body_raw = message.body().expect("message did not have a body!");
     let message = decode_message(body_raw);
 
     let all_attachments = build_attachments(&message);
     let mut bodies: Vec<String> = vec![];
-    let mut attachments: Vec<Attachment> = vec![];
+    let mut attachments: Vec<WebAttachment> = vec![];
 
     if message.html_body_count().gt(&0) {
         let html_bodies = fetch_html_bodies(message.html_bodies(), all_attachments);
         bodies.extend(html_bodies.iter().map(|b| b.0.clone()).collect::<Vec<String>>());
-        attachments.extend(html_bodies.iter().flat_map(|b| b.1.clone()).collect::<HashSet<Attachment>>().into_iter().collect::<Vec<Attachment>>());
+        attachments.extend(html_bodies.iter().flat_map(|b| b.1.clone()).collect::<HashSet<WebAttachment>>().into_iter().collect::<Vec<WebAttachment>>());
     } else if message.text_body_count().gt(&0) {
         bodies.extend(fetch_text_bodies(message.text_bodies()));
         attachments.extend(all_attachments);
@@ -136,7 +136,7 @@ fn parse_message(message: &Fetch) -> Email {
     let from_addresses = message.from().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
     let to_addresses = message.to().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
 
-    let mail = Email {
+    let mail = WebEmail {
         id: message.message_id().unwrap().to_string(),
         delivered_at,
         from: from_addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>(),
@@ -148,7 +148,7 @@ fn parse_message(message: &Fetch) -> Email {
     mail
 }
 
-fn replace_images(mut body: String, mut attachments: Vec<Attachment>) -> (String, Vec<Attachment>) {
+fn replace_images(mut body: String, mut attachments: Vec<WebAttachment>) -> (String, Vec<WebAttachment>) {
     let regex = match Regex::new(r#"src="cid:[^"]*""#) {
         Ok(r) => r,
         Err(e) => {
@@ -168,7 +168,7 @@ fn replace_images(mut body: String, mut attachments: Vec<Attachment>) -> (String
 
 
     let mut replaced_body = "".to_string();
-    let mut attachments_to_be_deleted: HashSet<Attachment> = HashSet::new();
+    let mut attachments_to_be_deleted: HashSet<WebAttachment> = HashSet::new();
     caps.into_iter().for_each(|cap| {
         replaced_body = body.clone();
 
@@ -208,8 +208,8 @@ fn replace_images(mut body: String, mut attachments: Vec<Attachment>) -> (String
     (body.clone(), attachments.clone())
 }
 
-fn build_attachments(message: &Message) -> Vec<Attachment> {
-    let mut attachments: Vec<Attachment> = vec![];
+fn build_attachments(message: &Message) -> Vec<WebAttachment> {
+    let mut attachments: Vec<WebAttachment> = vec![];
 
     message.attachments.iter().for_each(|attachment_index| {
         let optional_part = message.parts.get(*attachment_index);
@@ -248,7 +248,7 @@ fn build_attachments(message: &Message) -> Vec<Attachment> {
 
             let encoding = part.content_transfer_encoding().or(Some("")).unwrap().to_string();
 
-            attachments.push(Attachment {
+            attachments.push(WebAttachment {
                 filename,
                 content_id,
                 content: part.contents().to_vec(),
@@ -268,8 +268,8 @@ fn decode_message(body_raw: &[u8]) -> Message {
     mail.into_owned()
 }
 
-fn fetch_html_bodies(iterator: BodyPartIterator, attachments: Vec<Attachment>) -> Vec<(String, Vec<Attachment>)> {
-    let mut bodies: Vec<(String, Vec<Attachment>)> = vec![];
+fn fetch_html_bodies(iterator: BodyPartIterator, attachments: Vec<WebAttachment>) -> Vec<(String, Vec<WebAttachment>)> {
+    let mut bodies: Vec<(String, Vec<WebAttachment>)> = vec![];
 
     iterator.for_each(|b| {
         let (cow, _, _) = UTF_8.decode(&b.contents());

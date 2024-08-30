@@ -3,8 +3,9 @@
 
 use crate::commands::messages::*;
 
-mod commands;
-mod structs;
+pub mod commands;
+pub mod structs;
+pub mod database;
 
 fn main() {
     std::env::set_var("RUST_LOG", "info");

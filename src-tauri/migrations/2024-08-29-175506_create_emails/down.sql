@@ -1,5 +1,5 @@
 -- This file should undo anything in `up.sql`
-DROP TABLE "email";
+DROP TABLE "attachment";
 DROP TABLE "sender";
 DROP TABLE "recipient";
-DROP TABLE "attachment";
+DROP TABLE "email";

@@ -23,6 +23,7 @@ env_logger = "0.11.5"
 regex = "1.10.5"
 base64 = "0.22.1"
 diesel = { version = "2.2.3", features = ["sqlite"] }
+diesel_migrations = { version = "2.2.0", features = ["sqlite"] }
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

@@ -22,7 +22,7 @@ pub struct WebAttachment {
     pub encoding: String,
 }
 
-#[derive(Deserialize, Serialize, Clone, Queryable, Selectable)]
+#[derive(Queryable, Identifiable, Selectable, Debug, PartialEq)]
 #[diesel(table_name = crate::database::schema::email)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Email {
@@ -32,9 +32,15 @@ pub struct Email {
     pub subject: String,
 }
 
-#[derive(Deserialize, Serialize, Eq, Hash, PartialEq, Clone, Queryable, Selectable)]
+#[derive(PartialEq,
+    Clone,
+    Queryable,
+    Selectable,
+    Identifiable,
+    Associations
+)]
 #[diesel(table_name = crate::database::schema::attachment)]
-#[diesel(belongs_to(Email))]
+#[diesel(belongs_to(Email, foreign_key = email_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Attachment {
     pub id: i32,
@@ -45,9 +51,15 @@ pub struct Attachment {
     pub email_id: i32,
 }
 
-#[derive(Deserialize, Serialize, Eq, Hash, PartialEq, Clone, Queryable, Selectable)]
+#[derive(PartialEq,
+    Clone,
+    Queryable,
+    Selectable,
+    Identifiable,
+    Associations
+)]
 #[diesel(table_name = crate::database::schema::recipient)]
-#[diesel(belongs_to(Email))]
+#[diesel(belongs_to(Email, foreign_key = email_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Recipient {
     pub id: i32,
@@ -55,9 +67,14 @@ pub struct Recipient {
     pub email_id: i32,
 }
 
-#[derive(Deserialize, Serialize, Eq, Hash, PartialEq, Clone, Queryable, Selectable)]
+#[derive(Clone,
+    Queryable,
+    Selectable,
+    Identifiable,
+    Associations
+)]
 #[diesel(table_name = crate::database::schema::sender)]
-#[diesel(belongs_to(Email))]
+#[diesel(belongs_to(Email, foreign_key = email_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Sender {
     pub id: i32,

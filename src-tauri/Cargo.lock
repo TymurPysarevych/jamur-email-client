@@ -1529,6 +1529,7 @@ dependencies = [
  "encoding_rs",
  "env_logger",
  "imap",
+ "libsqlite3-sys",
  "log",
  "mail-parser",
  "native-tls",
@@ -1675,10 +1676,11 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.27.0"
+version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf4e226dcd58b4be396f7bd3c20da8fdee2911400705297ba7d2d7cc2c30f716"
+checksum = "2e99fb7a497b1e3339bc746195567ed8d3e24945ecd636e3619d20b9de9e9149"
 dependencies = [
+ "cc",
  "pkg-config",
  "vcpkg",
 ]

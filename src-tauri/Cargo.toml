@@ -9,9 +9,9 @@ edition = "2021"
 tauri-build = { version = "1", features = [] }
 
 [dependencies]
-tauri = { version = "1.7.2", features = ["shell-open", "fs-all"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+tauri = { version = "1.7.2", features = ["shell-open", "fs-all", "window-all"] }
+serde = { version = "1.0.209", features = ["derive"] }
+serde_json = "1.0.127"
 imap = "2.4.1"
 native-tls = "0.2.12"
 mail-parser = { version = "0.9.3", features = ["encoding_rs"] }
@@ -25,6 +25,14 @@ base64 = "0.22.1"
 libsqlite3-sys = { version = "0.30.1", features = ["bundled"] }
 diesel = { version = "2.2.3", features = ["sqlite"] }
 diesel_migrations = { version = "2.2.0", features = ["sqlite"] }
+httparse = "1.9.4"
+
+tokio = { version = "1.40.0", features = ["full"] }
+axum = { version = "0.6.20", features = ["headers"] }
+oauth2 = "4.4.2"
+reqwest = { version = "0.12.7", default-features = false, features = ["rustls-tls", "json"] }
+open = "5.3.0"
+keyring = { version = "3.2.1", features = ["apple-native", "windows-native", "sync-secret-service"] }
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

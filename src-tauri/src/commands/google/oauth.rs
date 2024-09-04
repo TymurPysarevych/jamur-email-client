@@ -7,12 +7,12 @@ use dotenv::{dotenv, var};
 use keyring::Entry;
 use oauth2::basic::{BasicClient, BasicTokenResponse};
 use oauth2::reqwest::async_http_client;
-use oauth2::{AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, TokenResponse, TokenUrl};
+use oauth2::{AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, RefreshToken, TokenResponse, TokenUrl};
 use std::net::{SocketAddr, TcpListener};
 use std::sync::Arc;
 use tauri::Manager;
 
-const KEYRING_SERVICE_GMAIL_REFRESH_TOKEN: &str = "jamur/gmail/refresh_token";
+pub const KEYRING_SERVICE_GMAIL_REFRESH_TOKEN: &str = "jamur/gmail/refresh_token";
 
 #[tauri::command]
 pub async fn authenticate_google(handle: tauri::AppHandle) {
@@ -150,4 +150,52 @@ pub fn create_auth_state() -> AuthState {
     };
 
     state
+}
+
+pub async fn renew_token(handle: &tauri::AppHandle, user: &str) {
+    let keyring = match Entry::new(KEYRING_SERVICE_GMAIL_REFRESH_TOKEN, user) {
+        Ok(keyring) => keyring,
+        Err(e) => {
+            panic!("Error creating keyring entry: {:?}", e);
+        }
+    };
+
+    let refresh_token = match keyring.get_password() {
+        Ok(token) => token,
+        Err(e) => {
+            panic!("Error getting password from keyring: {:?}", e);
+        }
+    };
+
+    let auth_state = handle.state::<AuthState>();
+    let token = auth_state
+        .client
+        .exchange_refresh_token(&RefreshToken::new(refresh_token))
+        .request_async(async_http_client)
+        .await
+        .unwrap();
+
+    let email = match fetch_user_email(&token).await {
+        s => s,
+    };
+
+    let keyring = match Entry::new(KEYRING_SERVICE_GMAIL_REFRESH_TOKEN, &email) {
+        Ok(keyring) => keyring,
+        Err(e) => {
+            panic!("Error creating keyring entry: {:?}", e);
+        }
+    };
+    let refresh_token = match token.refresh_token() {
+        Some(token) => token.secret(),
+        None => {
+            panic!("Error getting refresh token from token response");
+        }
+    };
+
+    match keyring.set_password(refresh_token) {
+        Ok(_) => (),
+        Err(e) => {
+            panic!("Error setting password in keyring: {:?}", e);
+        }
+    }
 }

@@ -1,7 +1,7 @@
 use crate::database::db_init::establish_connection;
 use crate::database::schema::email as schema_email;
 use crate::database::schema::email::dsl::email;
-use crate::structs::email::{Attachment, Email};
+use crate::structs::imap_email::{Attachment, Email};
 use diesel::{BelongingToDsl, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 use log::error;
 

@@ -3,8 +3,10 @@ extern crate encoding_rs;
 extern crate imap;
 extern crate native_tls;
 
+use crate::commands::google::oauth::{renew_token, KEYRING_SERVICE_GMAIL_REFRESH_TOKEN};
 use crate::commands::helper::helper_messages::*;
-use crate::structs::email::WebEmail;
+use crate::database::keychain_entry_repository::fetch_keychain_entry_google;
+use crate::structs::imap_email::WebEmail;
 use dotenv::dotenv;
 use log::info;
 use std::env::var;
@@ -53,4 +55,18 @@ pub async fn fetch_by_query(_server: String, _login: String, _password: String, 
     imap_session.logout().ok();
 
     Ok(web_emails)
+}
+
+#[tauri::command]
+pub async fn fetch_gmail_messages(handle: tauri::AppHandle) -> Result<(), ()> {
+    let google_keychain_entries = fetch_keychain_entry_google();
+    let handle_clone = handle.clone();
+    for entry in google_keychain_entries {
+        let _ = renew_token(&handle_clone, &entry.user).await;
+
+        // all messages      https://gmail.googleapis.com/gmail/v1/users/{entry.user}/messages
+
+        // details           https://gmail.googleapis.com/gmail/v1/users/{entry.user}/messages/{id}
+    }
+    Ok(())
 }

@@ -1,9 +1,8 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use crate::commands::localhost_server::*;
+use crate::commands::google::oauth::*;
 use crate::commands::messages::*;
-use crate::commands::oauth::*;
 use log::info;
 
 pub mod commands;
@@ -19,8 +18,9 @@ fn main() {
     tauri::Builder::default()
         .manage(state)
         .setup(|_app| {
-            info!("Checking for database migrations...");
+            info!("⚠️Checking for database migrations ...");
             database::db_init::run_migration(database::db_init::establish_connection());
+            info!("... database migrations complete ✅");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![fetch_messages, fetch_by_query, authenticate_google])

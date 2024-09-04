@@ -1,4 +1,4 @@
-use crate::structs::email::{WebAttachment, WebEmail};
+use crate::structs::imap_email::{WebAttachment, WebEmail};
 use base64::engine::general_purpose;
 use base64::Engine;
 use chrono::{DateTime, Utc};

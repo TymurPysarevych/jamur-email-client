@@ -15,7 +15,8 @@ pub fn fetch_all() -> Vec<Email> {
 
     let attachments = Attachment::belonging_to(&all_emails)
         .select(Attachment::as_select())
-        .load(connection).expect("Error loading attachments");
+        .load(connection)
+        .expect("Error loading attachments");
 
     all_emails
 }

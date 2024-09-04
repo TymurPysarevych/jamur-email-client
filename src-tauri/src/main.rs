@@ -6,8 +6,8 @@ use crate::commands::messages::*;
 use log::info;
 
 pub mod commands;
-pub mod structs;
 pub mod database;
+pub mod structs;
 
 fn main() {
     std::env::set_var("RUST_LOG", "info");
@@ -23,7 +23,11 @@ fn main() {
             info!("... database migrations complete ✅");
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![fetch_messages, fetch_by_query, authenticate_google])
+        .invoke_handler(tauri::generate_handler![
+            fetch_messages,
+            fetch_by_query,
+            authenticate_google
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -7,7 +7,10 @@ use dotenv::{dotenv, var};
 use keyring::Entry;
 use oauth2::basic::{BasicClient, BasicTokenResponse};
 use oauth2::reqwest::async_http_client;
-use oauth2::{AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl, RefreshToken, TokenResponse, TokenUrl};
+use oauth2::{
+    AuthUrl, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, PkceCodeVerifier, RedirectUrl,
+    RefreshToken, TokenResponse, TokenUrl,
+};
 use std::net::{SocketAddr, TcpListener};
 use std::sync::Arc;
 use tauri::Manager;
@@ -82,7 +85,10 @@ async fn authorize(
 async fn fetch_user_email(token: &BasicTokenResponse) -> String {
     let user_info = reqwest::Client::new()
         .get("https://www.googleapis.com/userinfo/v2/me")
-        .header("Authorization", format!("Bearer {}", token.access_token().secret()));
+        .header(
+            "Authorization",
+            format!("Bearer {}", token.access_token().secret()),
+        );
     let user_info_response = match user_info.send().await {
         Ok(info) => info,
         Err(error) => {
@@ -105,9 +111,7 @@ async fn fetch_user_email(token: &BasicTokenResponse) -> String {
     }
 }
 
-async fn run_server(
-    handle: tauri::AppHandle,
-) -> Result<(), axum::Error> {
+async fn run_server(handle: tauri::AppHandle) -> Result<(), axum::Error> {
     let app = Router::new()
         .route("/callback", get(authorize))
         .layer(Extension(handle.clone()));
@@ -121,12 +125,34 @@ async fn run_server(
 
 fn create_client(redirect_url: RedirectUrl) -> BasicClient {
     dotenv().ok();
-    let client_id = ClientId::new(var("OAUTH2_CLIENT_ID").expect("Missing AUTH0_CLIENT_ID!").to_string());
-    let client_secret = ClientSecret::new(var("OAUTH2_CLIENT_SECRET").expect("Missing AUTH0_CLIENT_SECRET!").to_string());
-    let auth_url = AuthUrl::new(var("OAUTH2_AUTH_URL").expect("Missing AUTH0_AUTH_URL!").to_string());
-    let token_url = TokenUrl::new(var("OAUTH2_TOKEN_URL").expect("Missing AUTH0_TOKEN_URL!").to_string());
+    let client_id = ClientId::new(
+        var("OAUTH2_CLIENT_ID")
+            .expect("Missing AUTH0_CLIENT_ID!")
+            .to_string(),
+    );
+    let client_secret = ClientSecret::new(
+        var("OAUTH2_CLIENT_SECRET")
+            .expect("Missing AUTH0_CLIENT_SECRET!")
+            .to_string(),
+    );
+    let auth_url = AuthUrl::new(
+        var("OAUTH2_AUTH_URL")
+            .expect("Missing AUTH0_AUTH_URL!")
+            .to_string(),
+    );
+    let token_url = TokenUrl::new(
+        var("OAUTH2_TOKEN_URL")
+            .expect("Missing AUTH0_TOKEN_URL!")
+            .to_string(),
+    );
 
-    BasicClient::new(client_id, Option::from(client_secret), auth_url.unwrap(), token_url.ok()).set_redirect_uri(redirect_url)
+    BasicClient::new(
+        client_id,
+        Option::from(client_secret),
+        auth_url.unwrap(),
+        token_url.ok(),
+    )
+    .set_redirect_uri(redirect_url)
 }
 
 fn get_available_addr() -> SocketAddr {
@@ -144,7 +170,10 @@ pub fn create_auth_state() -> AuthState {
 
     let state = AuthState {
         csrf_token: CsrfToken::new_random(),
-        pkce: Arc::new((pkce_code_challenge, PkceCodeVerifier::secret(&pkce_code_verifier).to_string())),
+        pkce: Arc::new((
+            pkce_code_challenge,
+            PkceCodeVerifier::secret(&pkce_code_verifier).to_string(),
+        )),
         client: Arc::new(create_client(RedirectUrl::new(redirect_url).unwrap())),
         socket_addr,
     };

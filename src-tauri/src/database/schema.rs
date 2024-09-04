@@ -47,10 +47,4 @@ diesel::joinable!(attachment -> email (email_id));
 diesel::joinable!(recipient -> email (email_id));
 diesel::joinable!(sender -> email (email_id));
 
-diesel::allow_tables_to_appear_in_same_query!(
-    attachment,
-    email,
-    keychain_entry,
-    recipient,
-    sender,
-);
+diesel::allow_tables_to_appear_in_same_query!(attachment, email, keychain_entry, recipient, sender,);

@@ -1,4 +1,7 @@
+use crate::structs::access_token::AccessToken;
+use crate::structs::google::email::EmailLightResponse;
 use crate::structs::imap_email::{WebAttachment, WebEmail};
+use crate::structs::keychain_entry::KeychainEntry;
 use base64::engine::general_purpose;
 use base64::Engine;
 use chrono::{DateTime, Utc};
@@ -302,4 +305,37 @@ fn fetch_text_bodies(iterator: BodyPartIterator) -> Vec<String> {
     });
 
     bodies
+}
+
+pub async fn fetch_gmail_light_response(
+    entry: KeychainEntry,
+    access_token: AccessToken,
+) -> EmailLightResponse {
+    // all messages      https://gmail.googleapis.com/gmail/v1/users/{entry.user}/messages
+    let uri_all_gmails = format!(
+        "https://gmail.googleapis.com/gmail/v1/users/{}/messages",
+        entry.user
+    );
+
+    let client = reqwest::Client::new();
+
+    let all_gmails = client
+        .get(uri_all_gmails)
+        .header("Authorization", format!("Bearer {}", access_token.token))
+        .send()
+        .await;
+
+    let all_gmails_response = match all_gmails {
+        Ok(response) => response,
+        Err(error) => {
+            panic!("Error getting all messages from Google: {:?}", error);
+        }
+    };
+
+    match all_gmails_response.json::<EmailLightResponse>().await {
+        Ok(vec) => vec,
+        Err(e) => {
+            panic!("Error parsing JSON: {:?}", e);
+        }
+    }
 }

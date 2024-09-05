@@ -1,4 +1,8 @@
+use crate::database::access_token_repository::save_access_token_google;
+use crate::database::keychain_entry_repository::save_keychain_entry_google;
+use crate::structs::access_token::AccessToken;
 use crate::structs::auth::{AuthState, CallbackQuery};
+use crate::structs::keychain_entry::KeychainEntry;
 use axum::extract::Query;
 use axum::response::IntoResponse;
 use axum::routing::get;
@@ -78,6 +82,15 @@ async fn authorize(
             panic!("Error setting password in keyring: {:?}", e);
         }
     }
+    save_keychain_entry_google(&KeychainEntry {
+        key: KEYRING_SERVICE_GMAIL_REFRESH_TOKEN.to_string(),
+        user: email.clone(),
+    });
+
+    save_access_token_google(&AccessToken {
+        token: token.access_token().secret().clone(),
+        keychain_user: email,
+    });
 
     "authorized".to_string()
 }
@@ -181,7 +194,7 @@ pub fn create_auth_state() -> AuthState {
     state
 }
 
-pub async fn renew_token(handle: &tauri::AppHandle, user: &str) {
+pub async fn renew_token(handle: &tauri::AppHandle, user: &str) -> AccessToken {
     let keyring = match Entry::new(KEYRING_SERVICE_GMAIL_REFRESH_TOKEN, user) {
         Ok(keyring) => keyring,
         Err(e) => {
@@ -204,27 +217,8 @@ pub async fn renew_token(handle: &tauri::AppHandle, user: &str) {
         .await
         .unwrap();
 
-    let email = match fetch_user_email(&token).await {
-        s => s,
-    };
-
-    let keyring = match Entry::new(KEYRING_SERVICE_GMAIL_REFRESH_TOKEN, &email) {
-        Ok(keyring) => keyring,
-        Err(e) => {
-            panic!("Error creating keyring entry: {:?}", e);
-        }
-    };
-    let refresh_token = match token.refresh_token() {
-        Some(token) => token.secret(),
-        None => {
-            panic!("Error getting refresh token from token response");
-        }
-    };
-
-    match keyring.set_password(refresh_token) {
-        Ok(_) => (),
-        Err(e) => {
-            panic!("Error setting password in keyring: {:?}", e);
-        }
-    }
+    save_access_token_google(&AccessToken {
+        token: token.access_token().secret().clone(),
+        keychain_user: user.to_string(),
+    })
 }

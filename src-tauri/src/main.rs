@@ -10,7 +10,7 @@ pub mod database;
 pub mod structs;
 
 fn main() {
-    std::env::set_var("RUST_LOG", "info");
+    std::env::set_var("RUST_LOG", "debug");
     env_logger::init();
 
     let state = create_auth_state();
@@ -26,7 +26,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             fetch_messages,
             fetch_by_query,
-            authenticate_google
+            authenticate_google,
+            fetch_gmail_messages
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,13 @@
 // @generated automatically by Diesel CLI.
 
 diesel::table! {
+    access_token (keychain_user) {
+        token -> Text,
+        keychain_user -> Text,
+    }
+}
+
+diesel::table! {
     attachment (id) {
         id -> Integer,
         filename -> Text,
@@ -17,6 +24,13 @@ diesel::table! {
         email_id -> Text,
         delivered_at -> Timestamp,
         subject -> Text,
+    }
+}
+
+diesel::table! {
+    keychain_entry (user) {
+        key -> Text,
+        user -> Text,
     }
 }
 
@@ -41,8 +55,10 @@ diesel::joinable!(recipient -> email (email_id));
 diesel::joinable!(sender -> email (email_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    access_token,
     attachment,
     email,
+    keychain_entry,
     recipient,
     sender,
 );

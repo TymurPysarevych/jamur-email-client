@@ -32,13 +32,7 @@ pub struct Email {
     pub subject: String,
 }
 
-#[derive(PartialEq,
-    Clone,
-    Queryable,
-    Selectable,
-    Identifiable,
-    Associations
-)]
+#[derive(PartialEq, Clone, Queryable, Selectable, Identifiable, Associations)]
 #[diesel(table_name = crate::database::schema::attachment)]
 #[diesel(belongs_to(Email, foreign_key = email_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
@@ -51,13 +45,7 @@ pub struct Attachment {
     pub email_id: i32,
 }
 
-#[derive(PartialEq,
-    Clone,
-    Queryable,
-    Selectable,
-    Identifiable,
-    Associations
-)]
+#[derive(PartialEq, Clone, Queryable, Selectable, Identifiable, Associations)]
 #[diesel(table_name = crate::database::schema::recipient)]
 #[diesel(belongs_to(Email, foreign_key = email_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
@@ -67,12 +55,7 @@ pub struct Recipient {
     pub email_id: i32,
 }
 
-#[derive(Clone,
-    Queryable,
-    Selectable,
-    Identifiable,
-    Associations
-)]
+#[derive(Clone, Queryable, Selectable, Identifiable, Associations)]
 #[diesel(table_name = crate::database::schema::sender)]
 #[diesel(belongs_to(Email, foreign_key = email_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]

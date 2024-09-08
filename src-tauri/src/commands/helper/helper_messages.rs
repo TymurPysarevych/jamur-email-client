@@ -1,16 +1,17 @@
 use crate::structs::access_token::AccessToken;
-use crate::structs::google::email::EmailLightResponse;
+use crate::structs::google::email::{EmailLightResponse, GEmail};
 use crate::structs::imap_email::{WebAttachment, WebEmail};
 use crate::structs::keychain_entry::KeychainEntry;
 use base64::engine::general_purpose;
 use base64::Engine;
+use base64::{engine::general_purpose::URL_SAFE, Engine as _};
 use chrono::{DateTime, Utc};
 use encoding_rs::UTF_8;
 use imap::types::Fetch;
-use imap::{Client, Error, Session};
-use log::{error, info, warn};
+use imap::{Client, Session};
+use log::{error, warn};
 use mail_parser::{BodyPartIterator, Header, Message, MessageParser, MimeHeaders};
-use native_tls::{HandshakeError, TlsConnector, TlsStream};
+use native_tls::{TlsConnector, TlsStream};
 use regex::Regex;
 use std::collections::HashSet;
 use std::net::TcpStream;
@@ -308,10 +309,9 @@ fn fetch_text_bodies(iterator: BodyPartIterator) -> Vec<String> {
 }
 
 pub async fn fetch_gmail_light_response(
-    entry: KeychainEntry,
-    access_token: AccessToken,
+    entry: &KeychainEntry,
+    access_token: &AccessToken,
 ) -> EmailLightResponse {
-    // all messages      https://gmail.googleapis.com/gmail/v1/users/{entry.user}/messages
     let uri_all_gmails = format!(
         "https://gmail.googleapis.com/gmail/v1/users/{}/messages",
         entry.user
@@ -338,4 +338,52 @@ pub async fn fetch_gmail_light_response(
             panic!("Error parsing JSON: {:?}", e);
         }
     }
+}
+
+pub async fn fetch_gmail_message(access_token: &String, id: String, user: &String) -> GEmail {
+    let uri = format!(
+        "https://gmail.googleapis.com/gmail/v1/users/{}/messages/{}",
+        user, id
+    );
+
+    let client = reqwest::Client::new();
+
+    let message = client
+        .get(uri)
+        .header("Authorization", format!("Bearer {}", access_token))
+        .send()
+        .await;
+
+    let message_response = match message {
+        Ok(response) => response,
+        Err(error) => {
+            panic!("Error getting message from Google: {:?}", error);
+        }
+    };
+
+    let mut mail_raw: GEmail = match message_response.json::<GEmail>().await {
+        Ok(gemail) => gemail,
+        Err(e) => {
+            panic!("Error parsing JSON: {:?}", e);
+        }
+    };
+
+    let mut parts = mail_raw.payload.parts.clone();
+    for part in parts.iter_mut().flatten() {
+        if let Some(body) = &part.body.data {
+            if let Ok(decoded) = URL_SAFE.decode(body) {
+                if let Ok(body_str) = String::from_utf8(decoded) {
+                    part.body.data = Some(body_str);
+                } else {
+                    error!("Failed to convert body to UTF-8 string");
+                }
+            } else {
+                error!("Failed to decode body");
+            }
+        }
+    }
+
+    mail_raw.payload.set_decoded_parts(parts);
+
+    mail_raw
 }

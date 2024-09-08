@@ -1,7 +1,7 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug)]
-pub struct Email {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GEmail {
     pub internalDate: String,
     pub historyId: String,
     pub id: String,
@@ -23,8 +23,8 @@ pub struct EmailLightResponse {
     pub messages: Vec<EmailLight>,
 }
 
-#[derive(Deserialize, Debug)]
-struct Payload {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Payload {
     pub mimeType: String,
     pub body: Body,
     pub partId: String,
@@ -33,21 +33,27 @@ struct Payload {
     pub parts: Option<Vec<Part>>,
 }
 
-#[derive(Deserialize, Debug)]
-struct Body {
+impl Payload {
+    pub fn set_decoded_parts(&mut self, decoded_parts: Option<Vec<Part>>) {
+        self.parts = decoded_parts;
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Body {
     pub size: u32,
     pub data: Option<String>,
     pub attachmentId: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
-struct Header {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Header {
     pub name: String,
     pub value: String,
 }
 
-#[derive(Deserialize, Debug)]
-struct Part {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Part {
     pub mimeType: String,
     pub body: Body,
     pub partId: String,

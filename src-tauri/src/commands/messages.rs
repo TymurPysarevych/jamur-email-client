@@ -6,13 +6,10 @@ extern crate native_tls;
 use crate::commands::google::oauth::renew_token;
 use crate::commands::helper::helper_messages::*;
 use crate::database::keychain_entry_repository::fetch_keychain_entry_google;
-use crate::structs::access_token::AccessToken;
-use crate::structs::google::email::{EmailLight, EmailLightResponse};
+use crate::structs::google::email::GEmail;
 use crate::structs::imap_email::WebEmail;
-use crate::structs::keychain_entry::KeychainEntry;
 use dotenv::dotenv;
 use log::info;
-use reqwest::Client;
 use std::env::var;
 
 #[tauri::command]
@@ -78,15 +75,21 @@ pub async fn fetch_by_query(
 }
 
 #[tauri::command]
-pub async fn fetch_gmail_messages(handle: tauri::AppHandle) -> Result<(), ()> {
+pub async fn fetch_gmail_messages(handle: tauri::AppHandle) -> Vec<GEmail> {
     let google_keychain_entries = fetch_keychain_entry_google();
     let handle_clone = handle.clone();
+
+    let mut mails: Vec<GEmail> = vec![];
+
     for entry in google_keychain_entries {
         let access_token = renew_token(&handle_clone, &entry.user).await;
 
-        let all_emails_light = fetch_gmail_light_response(entry, access_token).await;
+        let all_emails_light = fetch_gmail_light_response(&entry, &access_token).await;
 
-        // details           https://gmail.googleapis.com/gmail/v1/users/{entry.user}/messages/{id}
+        for email_light in all_emails_light.messages {
+            mails.push(fetch_gmail_message(&access_token.token, email_light.id, &entry.user).await)
+        }
     }
-    Ok(())
+
+    mails
 }

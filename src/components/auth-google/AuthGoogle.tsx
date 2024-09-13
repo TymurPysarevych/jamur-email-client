@@ -11,6 +11,10 @@ export default function AuthGoogle() {
         await invoke('fetch_gmail_messages');
     }
 
+    /**
+     * following code and styles are part of Googles guidelines from 13th Sep. 2024
+     * @see https://developers.google.com/identity/branding-guidelines
+     */
     return (
         <div>
             <button className="gsi-material-button" onClick={() => login()}>

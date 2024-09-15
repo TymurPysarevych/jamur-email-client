@@ -18,6 +18,7 @@
     "recoil": "0.7.7"
   },
   "devDependencies": {
+    "@iconify/react": "^5.0.2",
     "@tauri-apps/cli": "1.6.0",
     "@types/dompurify": "3.0.5",
     "@types/react": "18.3.3",

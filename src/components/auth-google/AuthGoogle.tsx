@@ -11,7 +11,7 @@ export default function AuthGoogle() {
    * @see https://developers.google.com/identity/branding-guidelines
    */
   return (
-    <div>
+    <div className={'form-container, center'}>
       <button className="gsi-material-button" onClick={() => login()}>
         <div className="gsi-material-button-state"></div>
         <div className="gsi-material-button-content-wrapper">

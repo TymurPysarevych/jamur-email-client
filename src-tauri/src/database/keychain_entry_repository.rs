@@ -5,6 +5,30 @@ use crate::database::schema::keychain_entry::dsl::keychain_entry;
 use crate::structs::keychain_entry::KeychainEntry;
 use diesel::{BoolExpressionMethods, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 
+pub fn fetch_all() -> Vec<KeychainEntry> {
+    let connection = &mut establish_connection();
+    let query_result = keychain_entry
+        .select(KeychainEntry::as_select())
+        .load(connection);
+    match query_result {
+        Ok(vec) => vec,
+        Err(e) => {
+            panic!("Error loading keychain entries: {:?}", e);
+        }
+    }
+}
+
+pub fn count_all() -> i64 {
+    let connection = &mut establish_connection();
+    let query_result = keychain_entry.count().get_result(connection);
+    match query_result {
+        Ok(count) => count,
+        Err(e) => {
+            panic!("Error counting keychain entries: {:?}", e);
+        }
+    }
+}
+
 pub fn fetch_keychain_entry_google() -> Vec<KeychainEntry> {
     let connection = &mut establish_connection();
     let query_result = keychain_entry

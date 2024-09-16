@@ -4,6 +4,7 @@
 use crate::commands::google::oauth::*;
 use crate::commands::messages::*;
 use log::info;
+use crate::commands::user::credentials_exist;
 
 pub mod commands;
 pub mod database;
@@ -27,7 +28,8 @@ fn main() {
             fetch_messages,
             fetch_by_query,
             authenticate_google,
-            fetch_gmail_messages
+            fetch_gmail_messages,
+            credentials_exist
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

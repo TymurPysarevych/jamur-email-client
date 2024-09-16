@@ -32,20 +32,6 @@ body {
   border-radius: var(--border-radius);
 }
 
-button {
-  background-color: var(--accent-color);
-  color: black;
-  border: none;
-  padding: 10px 20px;
-  border-radius: var(--border-radius);
-  cursor: pointer;
-}
-
-button:hover {
-  background-color: var(--highlight-color);
-  color: white;
-}
-
 .form-container {
   max-width: 600px;
   margin: 0 auto;

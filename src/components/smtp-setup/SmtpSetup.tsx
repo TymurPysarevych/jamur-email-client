@@ -1,5 +1,6 @@
-import './style.css';
+import './style.scss';
 import { useState } from 'react';
+import Button from '../../ui/button/Button.tsx';
 
 export default function SmtpSetup() {
   const [email, setEmail] = useState<string>('');
@@ -7,6 +8,20 @@ export default function SmtpSetup() {
   const [imapPort, setImapPort] = useState<number>();
   const [smtpHost, setSmtpHost] = useState<string>('');
   const [smtpPort, setSmtpPort] = useState<number>();
+
+  const saveDisabled =
+    !email ||
+    !imapHost ||
+    !imapPort ||
+    !smtpHost ||
+    !smtpPort ||
+    email.length < 1 ||
+    imapHost.length < 1 ||
+    smtpHost.length < 1;
+
+  const save = () => {
+    console.log(email, imapHost, imapPort, smtpHost, smtpPort);
+  };
 
   return (
     <div className="form-container">
@@ -65,7 +80,7 @@ export default function SmtpSetup() {
             />
           </div>
         </div>
-        <button type="submit">Save</button>
+        <Button text={'Save'} onClick={save} icon={'hugeicons:floppy-disk'} disabled={saveDisabled} />
       </form>
     </div>
   );

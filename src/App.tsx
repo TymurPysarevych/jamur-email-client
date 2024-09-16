@@ -1,4 +1,4 @@
-import './App.css';
+import './App.scss';
 import LoadingComponent from './components/loading/LoadingComponent.tsx';
 import InitialSetup from './components/initial-setup/InitialSetup.tsx';
 import Menu from './components/menu/Menu.tsx';

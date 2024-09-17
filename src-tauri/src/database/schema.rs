@@ -28,9 +28,9 @@ diesel::table! {
 }
 
 diesel::table! {
-    keychain_entry (user) {
+    keychain_entry (id) {
+        id -> Text,
         key -> Text,
-        user -> Text,
     }
 }
 
@@ -54,7 +54,7 @@ diesel::table! {
     simple_mail_credentials (id) {
         id -> Nullable<Integer>,
         username -> Text,
-        keychain_key -> Text,
+        keychain_id -> Text,
         imap_host -> Text,
         smtp_host -> Text,
         imap_port -> Integer,

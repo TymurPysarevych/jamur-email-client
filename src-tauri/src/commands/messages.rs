@@ -82,12 +82,12 @@ pub async fn fetch_gmail_messages(handle: tauri::AppHandle) -> Vec<GEmail> {
     let mut mails: Vec<GEmail> = vec![];
 
     for entry in google_keychain_entries {
-        let access_token = renew_token(&handle_clone, &entry.user).await;
+        let access_token = renew_token(&handle_clone, &entry.id).await;
 
         let all_emails_light = fetch_gmail_light_response(&entry, &access_token).await;
 
         for email_light in all_emails_light.messages {
-            mails.push(fetch_gmail_message(&access_token.token, email_light.id, &entry.user).await)
+            mails.push(fetch_gmail_message(&access_token.token, email_light.id, &entry.id).await)
         }
     }
 

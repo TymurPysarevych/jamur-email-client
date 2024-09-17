@@ -1,9 +1,15 @@
 import './style.scss';
 import { useState } from 'react';
 import Button from '../../ui/button/Button.tsx';
+import { invoke } from '@tauri-apps/api/tauri';
+import { useSetRecoilState } from 'recoil';
+import { loadingState } from '../../state/atoms.ts';
 
 export default function SmtpSetup() {
+  const setLoading = useSetRecoilState(loadingState);
   const [email, setEmail] = useState<string>('');
+  const [keychainId, setKeychainId] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
   const [imapHost, setImapHost] = useState<string>('');
   const [imapPort, setImapPort] = useState<number>();
   const [smtpHost, setSmtpHost] = useState<string>('');
@@ -11,30 +17,63 @@ export default function SmtpSetup() {
 
   const saveDisabled =
     !email ||
+    !keychainId ||
+    !password ||
     !imapHost ||
     !imapPort ||
     !smtpHost ||
     !smtpPort ||
     email.length < 1 ||
+    keychainId.length < 1 ||
+    password.length < 1 ||
     imapHost.length < 1 ||
     smtpHost.length < 1;
 
   const save = () => {
-    console.log(email, imapHost, imapPort, smtpHost, smtpPort);
+    setLoading(true);
+    invoke('save_imap_config', {
+      webCreds: {
+        config: {
+          username: email,
+          imapHost,
+          imapPort,
+          smtpHost,
+          smtpPort,
+          keychainId
+        },
+        password
+      }
+    }).finally(() => setLoading(false));
   };
 
   return (
     <div className="form-container">
       <form>
         <div className="form-group">
-          <label htmlFor="email">Email:</label>
+          <label htmlFor="name">Name:</label>
           <input
-            placeholder="example@mail.com"
+            placeholder="Name #1"
             type="text"
-            id="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            id="name"
+            value={keychainId}
+            onChange={(e) => setKeychainId(e.target.value)}
           />
+        </div>
+        <div className="inline-group">
+          <div className="form-group">
+            <label htmlFor="email">Email:</label>
+            <input
+              placeholder="example@mail.com"
+              type="text"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="password">Password:</label>
+            <input type="password" id="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
         </div>
         <div className="inline-group">
           <div className="form-group">

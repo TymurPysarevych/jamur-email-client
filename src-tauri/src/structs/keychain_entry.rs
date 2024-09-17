@@ -6,5 +6,5 @@ use serde::Deserialize;
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct KeychainEntry {
     pub key: String,
-    pub user: String,
+    pub id: String,
 }

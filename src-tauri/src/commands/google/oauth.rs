@@ -127,9 +127,8 @@ async fn run_server(handle: tauri::AppHandle) -> Result<(), axum::Error> {
         .route("/callback", get(authorize))
         .layer(Extension(handle.clone()));
 
-    let _ = axum::Server::bind(&handle.state::<AuthState>().socket_addr.clone())
-        .serve(app.into_make_service())
-        .await;
+    let listener = tokio::net::TcpListener::bind(&handle.state::<AuthState>().socket_addr.clone()).await.unwrap();
+    let _ = axum::serve(listener, app).await.unwrap();
 
     Ok(())
 }

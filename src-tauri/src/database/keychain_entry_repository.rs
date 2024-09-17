@@ -94,35 +94,22 @@ pub fn fetch_keychain_entry_imap_for_user(id: &str) -> Option<KeychainEntry> {
 }
 
 pub fn save_keychain_entry_google(entry: &KeychainEntry) -> Option<KeychainEntry> {
-    let optional_keychain_entry = fetch_keychain_entry_google_for_user(&entry.id);
-    if optional_keychain_entry.is_some() {
-        return optional_keychain_entry;
-    }
-
-    let connection = &mut establish_connection();
-    let query_result = diesel::insert_into(keychain_entry)
-        .values(entry)
-        .execute(connection);
-
-    match query_result {
-        Ok(_) => (),
-        Err(e) => {
-            panic!("Error inserting keychain entry: {:?}", e);
-        }
-    }
-
+    save(entry);
     fetch_keychain_entry_google_for_user(&entry.id)
 }
 
 pub fn save_keychain_entry_imap(entry: &KeychainEntry) -> Option<KeychainEntry> {
-    let optional_keychain_entry = fetch_keychain_entry_imap_for_user(&entry.id);
-    if optional_keychain_entry.is_some() {
-        return optional_keychain_entry;
-    }
+    save(entry);
+    fetch_keychain_entry_google_for_user(&entry.id)
+}
 
+fn save(entry: &KeychainEntry) {
     let connection = &mut establish_connection();
     let query_result = diesel::insert_into(keychain_entry)
         .values(entry)
+        .on_conflict(schema_keychain_entry::id)
+        .do_update()
+        .set(schema_keychain_entry::key.eq(&entry.key))
         .execute(connection);
 
     match query_result {
@@ -131,6 +118,4 @@ pub fn save_keychain_entry_imap(entry: &KeychainEntry) -> Option<KeychainEntry> 
             panic!("Error inserting keychain entry: {:?}", e);
         }
     }
-
-    fetch_keychain_entry_google_for_user(&entry.id)
 }

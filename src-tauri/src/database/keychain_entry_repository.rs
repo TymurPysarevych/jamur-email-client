@@ -45,6 +45,20 @@ pub fn fetch_keychain_entry_google() -> Vec<KeychainEntry> {
     }
 }
 
+pub fn fetch_keychain_entry_imap() -> Vec<KeychainEntry> {
+    let connection = &mut establish_connection();
+    let query_result = keychain_entry
+        .select(KeychainEntry::as_select())
+        .filter(schema_keychain_entry::key.eq(KEYRING_SERVICE_IMAP_PASSWORD))
+        .load(connection);
+    match query_result {
+        Ok(vec) => vec,
+        Err(e) => {
+            panic!("Error loading keychain entry: {:?}", e);
+        }
+    }
+}
+
 pub fn fetch_keychain_entry_google_for_user(user: &str) -> Option<KeychainEntry> {
     let connection = &mut establish_connection();
     let query_result = keychain_entry

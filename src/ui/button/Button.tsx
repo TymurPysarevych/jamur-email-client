@@ -1,7 +1,6 @@
 import './style.scss';
 import { Icon } from '@iconify/react';
-import { useEffect, useRef } from 'react';
-import autoAnimate from '@formkit/auto-animate';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 
 interface ButtonProps extends React.HtmlHTMLAttributes<HTMLDivElement> {
   onClick: () => void;
@@ -14,11 +13,9 @@ interface ButtonProps extends React.HtmlHTMLAttributes<HTMLDivElement> {
 const ICON_SIZE = '24px';
 
 export default function Button({ onClick, text, icon, onlyIcon, disabled }: ButtonProps) {
-  const parent = useRef(null);
-  useEffect(() => {
-    parent.current && autoAnimate(parent.current, { duration: 200 });
-  }, [parent]);
-
+  const [parent] = useAutoAnimate({
+    duration: 200
+  });
   const onClickProxy = () => {
     if (disabled) {
       return;

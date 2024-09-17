@@ -1,19 +1,17 @@
-import {useRecoilValue} from "recoil";
-import {loadingState} from "../../state/atoms.ts";
-import {DNA} from "react-loader-spinner";
+import './style.scss';
+import { useRecoilValue } from 'recoil';
+import { loadingState } from '../../state/atoms.ts';
+import { DNA } from 'react-loader-spinner';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
 
 export default function LoadingComponent() {
-    const loading = useRecoilValue<boolean>(loadingState);
-    return (
-        <div style={{position: 'fixed', top: '0', right: '0'}}>
-            <DNA
-                visible={loading}
-                height="60"
-                width="80"
-                ariaLabel="dna-loading"
-                wrapperStyle={{}}
-                wrapperClass="dna-wrapper"
-            />
-        </div>
-    )
+  const loading = useRecoilValue<boolean>(loadingState);
+  const [parent] = useAutoAnimate({
+    duration: 200
+  });
+  return (
+    <div ref={parent}>
+      <DNA visible={loading} height="60" width="80" wrapperClass={'loading-container'} />
+    </div>
+  );
 }

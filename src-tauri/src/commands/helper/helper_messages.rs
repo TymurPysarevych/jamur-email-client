@@ -314,7 +314,7 @@ pub async fn fetch_gmail_light_response(
 ) -> EmailLightResponse {
     let uri_all_gmails = format!(
         "https://gmail.googleapis.com/gmail/v1/users/{}/messages",
-        entry.user
+        entry.id
     );
 
     let client = reqwest::Client::new();

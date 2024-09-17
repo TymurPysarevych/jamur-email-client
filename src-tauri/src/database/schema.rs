@@ -28,9 +28,9 @@ diesel::table! {
 }
 
 diesel::table! {
-    keychain_entry (user) {
+    keychain_entry (id) {
+        id -> Text,
         key -> Text,
-        user -> Text,
     }
 }
 
@@ -50,6 +50,18 @@ diesel::table! {
     }
 }
 
+diesel::table! {
+    simple_mail_credentials (id) {
+        id -> Nullable<Integer>,
+        username -> Text,
+        keychain_id -> Text,
+        imap_host -> Text,
+        smtp_host -> Text,
+        imap_port -> Integer,
+        smtp_port -> Integer,
+    }
+}
+
 diesel::joinable!(attachment -> email (email_id));
 diesel::joinable!(recipient -> email (email_id));
 diesel::joinable!(sender -> email (email_id));
@@ -61,4 +73,5 @@ diesel::allow_tables_to_appear_in_same_query!(
     keychain_entry,
     recipient,
     sender,
+    simple_mail_credentials,
 );

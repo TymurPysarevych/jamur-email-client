@@ -1,0 +1,44 @@
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.attachment {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: 200px;
+  height: 60px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 5px;
+  background-color: #f9f9f9;
+  cursor: pointer;
+}
+
+.icon {
+  font-size: 50px;
+}
+
+.icon-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+}
+
+.file-extension {
+  position: absolute;
+  top: 65%;
+  left: 50%;
+  transform: translate(-50%, -65%);
+  font-size: 14px;
+  background: transparent;
+}
+
+.filename {
+  font-size: 14px;
+  word-break: break-all;
+}

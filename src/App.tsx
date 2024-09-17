@@ -1,17 +1,43 @@
-import "./App.css";
-import EmailComponent from "./components/email/EmailComponent.tsx";
-import {RecoilRoot} from "recoil";
-import LoadingComponent from "./components/loading/LoadingComponent.tsx";
-import AuthGoogle from "./components/auth-google/AuthGoogle.tsx";
+import './App.scss';
+import LoadingComponent from './components/loading/LoadingComponent.tsx';
+import InitialSetup from './components/initial-setup/InitialSetup.tsx';
+import Menu from './components/menu/Menu.tsx';
+import { useRecoilState } from 'recoil';
+import { loadingState } from './state/atoms.ts';
+import { useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/tauri';
 
 export default function App() {
+  const [loading, setLoadingState] = useRecoilState(loadingState);
+  const [foundCredentials, setFoundCredentials] = useState(false);
+
+  useEffect(() => {
+    setLoadingState(true);
+    invoke<boolean>('credentials_exist')
+      .then((bool) => setFoundCredentials(bool))
+      .finally(() => setLoadingState(false));
+  }, []);
+
+  if (loading) {
     return (
-        <RecoilRoot>
-            <div className="container">
-                <LoadingComponent/>
-                <EmailComponent/>
-                <AuthGoogle/>
-            </div>
-        </RecoilRoot>
+      <>
+        <LoadingComponent />
+      </>
     );
+  }
+
+  if (!foundCredentials) {
+    return (
+      <>
+        <LoadingComponent />
+        <InitialSetup />
+      </>
+    );
+  }
+  return (
+    <div className="container">
+      <Menu />
+      <LoadingComponent />
+    </div>
+  );
 }

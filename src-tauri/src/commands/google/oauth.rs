@@ -1,5 +1,5 @@
 use crate::database::access_token_repository::save_access_token_google;
-use crate::database::keychain_entry_repository::save_keychain_entry_google;
+use crate::database::keychain_entry_repository::{save_keychain_entry_google, KEYRING_SERVICE_GMAIL_REFRESH_TOKEN};
 use crate::structs::access_token::AccessToken;
 use crate::structs::auth::{AuthState, CallbackQuery};
 use crate::structs::keychain_entry::KeychainEntry;
@@ -18,8 +18,6 @@ use oauth2::{
 use std::net::{SocketAddr, TcpListener};
 use std::sync::Arc;
 use tauri::Manager;
-
-pub const KEYRING_SERVICE_GMAIL_REFRESH_TOKEN: &str = "jamur/gmail/refresh_token";
 
 #[tauri::command]
 pub async fn authenticate_google(handle: tauri::AppHandle) {
@@ -84,7 +82,7 @@ async fn authorize(
     }
     save_keychain_entry_google(&KeychainEntry {
         key: KEYRING_SERVICE_GMAIL_REFRESH_TOKEN.to_string(),
-        user: email.clone(),
+        id: email.clone(),
     });
 
     save_access_token_google(&AccessToken {

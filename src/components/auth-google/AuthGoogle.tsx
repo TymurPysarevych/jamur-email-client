@@ -1,21 +1,26 @@
-import {invoke} from "@tauri-apps/api/tauri";
+import { invoke } from '@tauri-apps/api/tauri';
+import './style.scss';
 
 export default function AuthGoogle() {
+  const login = async () => {
+    await invoke('authenticate_google');
+  };
 
-    const login = async () => {
-        await invoke('authenticate_google');
-    };
-
-    const getMails = async () => {
-        await invoke('fetch_gmail_messages');
-    }
-
-    return (
-        <div>
-            <h2>React Google Login</h2>
-            <br/>
-            <button onClick={() => login()}>Sign in with Google 🚀</button>
-            <button onClick={() => getMails()}>Get all Emails</button>
+  /**
+   * following code and styles are part of Googles guidelines from 13th Sep. 2024
+   * @see https://developers.google.com/identity/branding-guidelines
+   */
+  return (
+    <div className={'form-container, center'}>
+      <button className="gsi-material-button" onClick={() => login()}>
+        <div className="gsi-material-button-state"></div>
+        <div className="gsi-material-button-content-wrapper">
+          <div className="gsi-material-button-icon">
+            <img src="src/assets/images/google_logo.svg" />
+          </div>
+          <span className="gsi-material-button-contents">Sign in with Google</span>
         </div>
-    );
+      </button>
+    </div>
+  );
 }

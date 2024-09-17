@@ -40,9 +40,13 @@ export default function App() {
     );
   }
   return (
-    <div className="container">
-      <Menu />
-      <LoadingComponent />
+    <div className="main-layout">
+      <div className="menu">
+        <Menu />
+      </div>
+      <div className="container">
+        <LoadingComponent />
+      </div>
     </div>
   );
 }

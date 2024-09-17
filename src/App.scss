@@ -13,6 +13,7 @@
 
 :root {
   --primary-color: #22092c;
+  --primary-color-transparent: rgba(34, 9, 44, 0.79);
   --secondary-color: #872341;
   --accent-color: #e2dfd0;
   --highlight-color: #adaa9e;
@@ -24,15 +25,33 @@
 }
 
 body {
-  background-color: var(--primary-color);
-  color: var(--highlight-color);
-  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background: var(--primary-color);
+}
+
+@supports (-webkit-backdrop-filter: none) or (backdrop-filter: none) {
+  body {
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    background-color: var(--primary-color-transparent);
+  }
+}
+
+.main-layout {
+  display: flex;
+}
+
+.menu {
+  width: fit-content;
+  height: 100vh;
+  border-right: 1px solid var(--accent-color);
 }
 
 .container {
+  flex: 1;
   padding: 20px;
   background-color: var(--secondary-color);
-  border-radius: var(--border-radius);
 }
 
 .form-container {

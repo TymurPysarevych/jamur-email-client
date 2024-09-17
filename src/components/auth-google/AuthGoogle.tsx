@@ -1,9 +1,13 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import './style.scss';
+import { useSetRecoilState } from 'recoil';
+import { loadingState } from '../../state/atoms.ts';
 
 export default function AuthGoogle() {
-  const login = async () => {
-    await invoke('authenticate_google');
+  const setLoadingState = useSetRecoilState(loadingState);
+  const login = () => {
+    setLoadingState(true);
+    invoke('authenticate_google').finally(() => setLoadingState(false));
   };
 
   /**

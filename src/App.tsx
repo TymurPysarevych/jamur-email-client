@@ -2,39 +2,33 @@ import './App.scss';
 import LoadingComponent from './components/loading/LoadingComponent.tsx';
 import InitialSetup from './components/initial-setup/InitialSetup.tsx';
 import Menu from './components/menu/Menu.tsx';
-import { useSetRecoilState } from 'recoil';
-import { loadingState } from './state/atoms.ts';
+import { useRecoilState } from 'recoil';
+import { keychainEntriesState } from './state/atoms.ts';
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
+import { KeychainEntry } from './interfaces/KeychainEntry.ts';
+import { useTauriInvoke } from './utils/UseTauriInvoke.ts';
 
 export default function App() {
-  const setLoadingState = useSetRecoilState(loadingState);
+  const [keychainEntries, setKeychainEntries] = useRecoilState(keychainEntriesState);
   const [loadingCredsExist, setLoadingCredsExistState] = useState(true);
-  const [foundCredentials, setFoundCredentials] = useState(false);
+  const [fetchKeychainEntries] = useTauriInvoke<Array<KeychainEntry>>('credentials_exist');
 
   useEffect(() => {
-    setLoadingState(true);
     setLoadingCredsExistState(true);
-    invoke<boolean>('credentials_exist')
-      .then((bool) => setFoundCredentials(bool))
+    fetchKeychainEntries()
+      .then((entries) => setKeychainEntries(entries))
       .finally(() => {
-        setLoadingState(false);
         setLoadingCredsExistState(false);
       });
   }, []);
 
   if (loadingCredsExist) {
-    return (
-      <>
-        <LoadingComponent />
-      </>
-    );
+    return <></>;
   }
 
-  if (!foundCredentials) {
+  if (keychainEntries.length === 0) {
     return (
       <>
-        <LoadingComponent />
         <InitialSetup />
       </>
     );

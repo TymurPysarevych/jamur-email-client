@@ -3,23 +3,19 @@ import EmailAttachmentComponent from './attachments/EmailAttachmentComponent.tsx
 import EmailBody from './body/EmailBody.tsx';
 import { useState } from 'react';
 import { Email } from '../../interfaces/Email.ts';
-import { invoke } from '@tauri-apps/api/tauri';
-import { useSetRecoilState } from 'recoil';
-import { loadingState } from '../../state/atoms.ts';
+import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
 
 export default function EmailComponent() {
   const [emails, setEmails] = useState<Array<Email>>([]);
-  const setLoading = useSetRecoilState<boolean>(loadingState);
+  const [invokeFetchEmails] = useTauriInvoke<Array<Email>>('fetch_messages', { server: '', login: '', password: '' });
 
   const fetchEmails = async () => {
-    setLoading(true);
-    await invoke<Array<Email>>('fetch_messages', { server: '', login: '', password: '' })
+    await invokeFetchEmails()
       .then((response) => {
         setEmails(response);
         console.log('Emails: ', emails.length);
       })
-      .catch((e) => console.error(e))
-      .finally(() => setLoading(false));
+      .catch((e) => console.error(e));
   };
 
   return (

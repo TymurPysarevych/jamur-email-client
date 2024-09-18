@@ -1,18 +1,17 @@
 import './style.scss';
-import { useSetRecoilState } from 'recoil';
-import { loadingState } from '../../state/atoms.ts';
-import Button from '../../ui/button/Button.tsx';
+import { keychainEntriesState } from '../../state/atoms.ts';
+import { useRecoilValue } from 'recoil';
 
 export default function Menu() {
-  const setLoadingState = useSetRecoilState(loadingState);
-
-  const onClick = () => {
-    setLoadingState((currVal) => !currVal);
-  };
-
+  const keychainEntries = useRecoilValue(keychainEntriesState);
   return (
     <div>
-      <Button onClick={onClick} text="test" icon="" />
+      <h1>Menu</h1>
+      <ul>
+        {keychainEntries.map((entry) => (
+          <li key={`${entry.key}-${entry.id}`}>{entry.id}</li>
+        ))}
+      </ul>
     </div>
   );
 }

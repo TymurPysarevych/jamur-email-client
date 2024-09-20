@@ -9,8 +9,8 @@ import { KeychainEntry } from './interfaces/KeychainEntry.ts';
 import { useTauriInvoke } from './utils/UseTauriInvoke.ts';
 
 export default function App() {
-  const [keychainEntries, setKeychainEntries] = useRecoilState(keychainEntriesState);
   const [loadingCredsExist, setLoadingCredsExistState] = useState(true);
+  const [keychainEntries, setKeychainEntries] = useRecoilState(keychainEntriesState);
   const [fetchKeychainEntries] = useTauriInvoke<Array<KeychainEntry>>('credentials_exist');
 
   useEffect(() => {

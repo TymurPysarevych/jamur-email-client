@@ -3,8 +3,13 @@ import { useState } from 'react';
 import Button from '../../ui/button/Button.tsx';
 import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
 import { Email } from '../../interfaces/Email.ts';
+import { useSetRecoilState } from 'recoil';
+import { keychainEntriesState } from '../../state/atoms.ts';
+import { KeychainEntry } from '../../interfaces/KeychainEntry.ts';
 
 export default function SmtpSetup() {
+  const setKeychainEntries = useSetRecoilState(keychainEntriesState);
+  const [fetchKeychainEntries] = useTauriInvoke<Array<KeychainEntry>>('credentials_exist');
   const [email, setEmail] = useState<string>('');
   const [keychainId, setKeychainId] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -40,8 +45,10 @@ export default function SmtpSetup() {
     imapHost.length < 1 ||
     smtpHost.length < 1;
 
-  const save = async () => {
-    await invokeSaveImapConfig();
+  const save = () => {
+    invokeSaveImapConfig().finally(() => {
+      fetchKeychainEntries().then((entries) => setKeychainEntries(entries));
+    });
   };
 
   return (

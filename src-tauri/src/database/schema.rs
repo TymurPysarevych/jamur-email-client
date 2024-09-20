@@ -51,10 +51,9 @@ diesel::table! {
 }
 
 diesel::table! {
-    simple_mail_credentials (id) {
-        id -> Nullable<Integer>,
-        username -> Text,
+    simple_mail_credentials (keychain_id) {
         keychain_id -> Text,
+        username -> Text,
         imap_host -> Text,
         smtp_host -> Text,
         imap_port -> Integer,

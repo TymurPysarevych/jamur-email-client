@@ -1,5 +1,8 @@
+use crate::commands::helper::helper_keyring::{fetch_keyring_entry, save_keyring_entry};
 use crate::database::access_token_repository::save_access_token_google;
-use crate::database::keychain_entry_repository::{save_keychain_entry_google, KEYRING_SERVICE_GMAIL_REFRESH_TOKEN};
+use crate::database::keychain_entry_repository::{
+    save_keychain_entry_google, KEYCHAIN_KEY_GMAIL_REFRESH_TOKEN,
+};
 use crate::structs::access_token::AccessToken;
 use crate::structs::auth::{AuthState, CallbackQuery};
 use crate::structs::keychain_entry::KeychainEntry;
@@ -8,7 +11,6 @@ use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::{Extension, Router};
 use dotenv::{dotenv, var};
-use keyring::Entry;
 use oauth2::basic::{BasicClient, BasicTokenResponse};
 use oauth2::reqwest::async_http_client;
 use oauth2::{
@@ -60,13 +62,6 @@ async fn authorize(
         s => s,
     };
 
-    // store the token in the keyring
-    let keyring = match Entry::new(KEYRING_SERVICE_GMAIL_REFRESH_TOKEN, &email) {
-        Ok(keyring) => keyring,
-        Err(e) => {
-            panic!("Error creating keyring entry: {:?}", e);
-        }
-    };
     let refresh_token = match token.refresh_token() {
         Some(token) => token.secret(),
         None => {
@@ -74,14 +69,11 @@ async fn authorize(
         }
     };
 
-    match keyring.set_password(refresh_token) {
-        Ok(_) => (),
-        Err(e) => {
-            panic!("Error setting password in keyring: {:?}", e);
-        }
-    }
+    // store the token in the keyring
+    save_keyring_entry(KEYCHAIN_KEY_GMAIL_REFRESH_TOKEN, &email, &refresh_token);
+
     save_keychain_entry_google(&KeychainEntry {
-        key: KEYRING_SERVICE_GMAIL_REFRESH_TOKEN.to_string(),
+        key: KEYCHAIN_KEY_GMAIL_REFRESH_TOKEN.to_string(),
         id: email.clone(),
     });
 
@@ -127,7 +119,9 @@ async fn run_server(handle: tauri::AppHandle) -> Result<(), axum::Error> {
         .route("/callback", get(authorize))
         .layer(Extension(handle.clone()));
 
-    let listener = tokio::net::TcpListener::bind(&handle.state::<AuthState>().socket_addr.clone()).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(&handle.state::<AuthState>().socket_addr.clone())
+        .await
+        .unwrap();
     let _ = axum::serve(listener, app).await.unwrap();
 
     Ok(())
@@ -192,20 +186,7 @@ pub fn create_auth_state() -> AuthState {
 }
 
 pub async fn renew_token(handle: &tauri::AppHandle, user: &str) -> AccessToken {
-    let keyring = match Entry::new(KEYRING_SERVICE_GMAIL_REFRESH_TOKEN, user) {
-        Ok(keyring) => keyring,
-        Err(e) => {
-            panic!("Error creating keyring entry: {:?}", e);
-        }
-    };
-
-    let refresh_token = match keyring.get_password() {
-        Ok(token) => token,
-        Err(e) => {
-            panic!("Error getting password from keyring: {:?}", e);
-        }
-    };
-
+    let refresh_token = fetch_keyring_entry(KEYCHAIN_KEY_GMAIL_REFRESH_TOKEN, user);
     let auth_state = handle.state::<AuthState>();
     let token = auth_state
         .client

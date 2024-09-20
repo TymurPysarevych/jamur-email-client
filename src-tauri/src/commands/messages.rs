@@ -4,20 +4,29 @@ extern crate imap;
 extern crate native_tls;
 
 use crate::commands::google::oauth::renew_token;
+use crate::commands::helper::helper_keyring::fetch_keyring_entry;
 use crate::commands::helper::helper_messages::*;
-use crate::database::keychain_entry_repository::fetch_keychain_entry_google;
+use crate::database::keychain_entry_repository::{
+    fetch_keychain_entry_google, KEYCHAIN_KEY_IMAP_PASSWORD,
+};
+use crate::database::simple_mail_credentials_repository::fetch_by_keychain_id;
 use crate::structs::google::email::GEmail;
 use crate::structs::imap_email::WebEmail;
+use crate::structs::keychain_entry::KeychainEntry;
 use dotenv::dotenv;
 use log::info;
 use std::env::var;
 
 #[tauri::command]
-pub async fn fetch_messages(
-    server: String,
-    login: String,
-    password: String,
-) -> Result<Vec<WebEmail>, ()> {
+pub async fn fetch_messages(keychain_entry: KeychainEntry) -> Result<Vec<WebEmail>, ()> {
+    let simple_mail_creds = fetch_by_keychain_id(&keychain_entry.id);
+    let server = format!(
+        "{}:{}",
+        simple_mail_creds.imap_host, simple_mail_creds.imap_port
+    );
+    let login = simple_mail_creds.username;
+    let password = fetch_keyring_entry(KEYCHAIN_KEY_IMAP_PASSWORD, &keychain_entry.id);
+
     let mut imap_session = open_imap_session(&server, &login, &password).await;
 
     let messages_stream = imap_session.fetch("1:*", "RFC822").ok();

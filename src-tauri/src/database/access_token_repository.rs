@@ -24,7 +24,7 @@ pub fn save_access_token_google(token: &AccessToken) -> AccessToken {
         .values(token)
         .on_conflict(schema_access_token::keychain_user)
         .do_update()
-        .set(schema_access_token::token.eq(&token.token))
+        .set(token)
         .execute(connection);
 
     match query_result {

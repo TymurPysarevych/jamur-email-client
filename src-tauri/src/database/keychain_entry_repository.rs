@@ -113,7 +113,7 @@ fn save(entry: &KeychainEntry) {
         .values(entry)
         .on_conflict(schema_keychain_entry::id)
         .do_update()
-        .set(schema_keychain_entry::key.eq(&entry.key))
+        .set(entry)
         .execute(connection);
 
     match query_result {

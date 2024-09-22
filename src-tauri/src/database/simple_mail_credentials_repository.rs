@@ -3,7 +3,6 @@ use crate::database::schema::simple_mail_credentials as schema_simple_mail_crede
 use crate::database::schema::simple_mail_credentials::dsl::simple_mail_credentials;
 use crate::structs::simple_mail_credentials::SimpleMailCredentials;
 use diesel::{ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
-use crate::database::schema::keychain_entry::dsl::keychain_entry;
 
 pub fn fetch_all() -> Vec<SimpleMailCredentials> {
     let connection = &mut establish_connection();
@@ -49,11 +48,7 @@ pub fn save(entry: &SimpleMailCredentials) {
         .values(entry)
         .on_conflict(schema_simple_mail_credentials::keychain_id)
         .do_update()
-        .set(schema_simple_mail_credentials::username.eq(&entry.username))
-        .set(schema_simple_mail_credentials::imap_port.eq(&entry.imap_port))
-        .set(schema_simple_mail_credentials::imap_host.eq(&entry.imap_host))
-        .set(schema_simple_mail_credentials::smtp_port.eq(&entry.smtp_port))
-        .set(schema_simple_mail_credentials::smtp_host.eq(&entry.smtp_host))
+        .set(entry)
         .execute(connection);
 
     match query_result {

@@ -13,7 +13,7 @@
 
 :root {
   --primary-color: #22092c;
-  --primary-color-transparent: rgba(34, 9, 44, 0.79);
+  --primary-color-transparent: rgba(34, 9, 44, 0.95);
   --secondary-color: #872341;
   --accent-color: #e2dfd0;
   --highlight-color: #adaa9e;
@@ -27,24 +27,21 @@
 body {
   margin: 0;
   padding: 0;
-  background: var(--primary-color);
+  background-color: var(--primary-color);
 }
 
 @supports (-webkit-backdrop-filter: none) or (backdrop-filter: none) {
   body {
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
     background-color: var(--primary-color-transparent);
   }
 }
 
 .main-layout {
   display: flex;
+  height: -webkit-fill-available;
 }
 
 .menu {
-  width: fit-content;
-  height: 100vh;
   border-right: 1px solid var(--accent-color);
 }
 

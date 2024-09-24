@@ -8,16 +8,17 @@ import { GEmail } from '../../interfaces/GEmail.ts';
 
 export default function Menu() {
   const keychainEntries = useRecoilValue(keychainEntriesState);
-  const [fetchImapMessages] = useTauriInvoke<Array<Email>>('fetch_messages');
-  const [fetchGmailMessages] = useTauriInvoke<Array<GEmail>>('fetch_gmail_messages');
+  const [fetchImapMessages] = useTauriInvoke<Array<Email>>();
+  const [fetchGmailMessages] = useTauriInvoke<Array<GEmail>>();
 
   const loadEmails = (entry: KeychainEntry) => {
+    console.log('Loading emails for:', entry);
     if (entry.key.startsWith(KEYCHAIN_KEY_GMAIL)) {
-      fetchImapMessages().then((emails) => {
+      fetchGmailMessages('fetch_gmail_messages').then((emails) => {
         console.log(emails);
       });
     } else if (entry.key.startsWith(KEYCHAIN_KEY_IMAP)) {
-      fetchGmailMessages().then((emails) => {
+      fetchImapMessages('fetch_messages', { keychainEntry: entry }).then((emails) => {
         console.log(emails);
       });
     } else {
@@ -28,7 +29,7 @@ export default function Menu() {
   return (
     <div className="menu-container">
       {keychainEntries.map((entry) => (
-        <div onClick={() => loadEmails(entry)} key={`${entry.key}-${entry.id}`}>
+        <div className="menu-container--entry" onClick={() => loadEmails(entry)} key={`${entry.key}-${entry.id}`}>
           {entry.id}
         </div>
       ))}

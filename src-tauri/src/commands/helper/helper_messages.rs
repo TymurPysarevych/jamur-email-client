@@ -18,11 +18,12 @@ use std::net::TcpStream;
 use std::time::{Duration, UNIX_EPOCH};
 
 pub async fn open_imap_session(
-    server: &str,
+    host: &str,
+    port: u16,
     login: &str,
     password: &str,
 ) -> Session<TlsStream<TcpStream>> {
-    let imap_addr = (server, 993);
+    let imap_addr = (host, port);
     let tcp_stream = match TcpStream::connect(imap_addr) {
         Ok(tcp) => tcp,
         Err(e) => {
@@ -37,7 +38,7 @@ pub async fn open_imap_session(
             panic!("{e}");
         }
     };
-    let tls_stream = match tls.connect(server, tcp_stream) {
+    let tls_stream = match tls.connect(host, tcp_stream) {
         Ok(stream) => stream,
         Err(e) => {
             error!("Failed to connect to TLS stream");

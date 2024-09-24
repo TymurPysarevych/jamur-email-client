@@ -9,7 +9,7 @@ import { KeychainEntry } from '../../interfaces/KeychainEntry.ts';
 
 export default function SmtpSetup() {
   const setKeychainEntries = useSetRecoilState(keychainEntriesState);
-  const [fetchKeychainEntries] = useTauriInvoke<Array<KeychainEntry>>('credentials_exist');
+  const [fetchKeychainEntries] = useTauriInvoke<Array<KeychainEntry>>();
   const [email, setEmail] = useState<string>('');
   const [keychainId, setKeychainId] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -17,19 +17,7 @@ export default function SmtpSetup() {
   const [imapPort, setImapPort] = useState<number>();
   const [smtpHost, setSmtpHost] = useState<string>('');
   const [smtpPort, setSmtpPort] = useState<number>();
-  const [invokeSaveImapConfig] = useTauriInvoke<Array<Email>>('save_imap_config', {
-    webCreds: {
-      config: {
-        username: email,
-        imapHost,
-        imapPort,
-        smtpHost,
-        smtpPort,
-        keychainId
-      },
-      password
-    }
-  });
+  const [invokeSaveImapConfig] = useTauriInvoke<Array<Email>>();
 
   const saveDisabled =
     !email ||
@@ -46,8 +34,20 @@ export default function SmtpSetup() {
     smtpHost.length < 1;
 
   const save = () => {
-    invokeSaveImapConfig().finally(() => {
-      fetchKeychainEntries().then((entries) => setKeychainEntries(entries));
+    invokeSaveImapConfig('save_imap_config', {
+      webCreds: {
+        config: {
+          username: email,
+          imapHost,
+          imapPort,
+          smtpHost,
+          smtpPort,
+          keychainId
+        },
+        password
+      }
+    }).finally(() => {
+      fetchKeychainEntries('credentials_exist').then((entries) => setKeychainEntries(entries));
     });
   };
 

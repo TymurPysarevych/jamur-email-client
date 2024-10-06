@@ -17,6 +17,8 @@ use dotenv::dotenv;
 use log::{error, info};
 use std::env::var;
 use std::num::TryFromIntError;
+use std::thread;
+use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 #[tauri::command]
@@ -45,6 +47,7 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry) {
     web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
     web_emails.iter().for_each(|email| {
         app.emit_all("new_email", email).expect("Could not emit email");
+        thread::sleep(Duration::from_millis(200));
     });
 }
 

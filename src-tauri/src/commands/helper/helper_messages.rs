@@ -54,9 +54,19 @@ pub async fn open_imap_session(
             panic!("{}", e.0);
         }
     };
+
     imap_session
         .select("INBOX")
         .expect("Failed to select INBOX");
+
+    // let list = match imap_session.list(None, Some("*")) {
+    //     Ok(l) => l,
+    //     Err(e) => {
+    //         error!("Failed to list IMAP folders");
+    //         panic!("{e}");
+    //     }
+    // };
+
     imap_session
 }
 
@@ -87,29 +97,17 @@ pub fn parse_message(message: &Fetch) -> WebEmail {
     let body_raw = message.body().expect("message did not have a body!");
     let message = decode_message(body_raw);
 
-    let all_attachments = build_attachments(&message);
-    let mut bodies: Vec<String> = vec![];
-    let mut attachments: Vec<WebAttachment> = vec![];
+    let mut all_attachments = build_attachments(&message);
+    let mut html_bodies: Vec<String> = vec![];
+    let mut text_bodies: Vec<String> = vec![];
 
     if message.html_body_count().gt(&0) {
-        let html_bodies = fetch_html_bodies(message.html_bodies(), all_attachments);
-        bodies.extend(
-            html_bodies
-                .iter()
-                .map(|b| b.0.clone())
-                .collect::<Vec<String>>(),
-        );
-        attachments.extend(
-            html_bodies
-                .iter()
-                .flat_map(|b| b.1.clone())
-                .collect::<HashSet<WebAttachment>>()
-                .into_iter()
-                .collect::<Vec<WebAttachment>>(),
-        );
-    } else if message.text_body_count().gt(&0) {
-        bodies.extend(fetch_text_bodies(message.text_bodies()));
-        attachments.extend(all_attachments);
+        let bodies = fetch_html_bodies(message.html_bodies(), &mut all_attachments);
+        html_bodies.extend(bodies);
+    }
+
+    if message.text_body_count().gt(&0) {
+        text_bodies.extend(fetch_text_bodies(message.text_bodies()));
     }
 
     let delivered_at = get_deliver_date(&message);
@@ -138,21 +136,22 @@ pub fn parse_message(message: &Fetch) -> WebEmail {
             .map(|a| a.unwrap().to_string())
             .collect::<Vec<String>>(),
         subject: message.subject().unwrap().to_string(),
-        bodies,
-        attachments,
+        html_bodies,
+        text_bodies,
+        attachments: all_attachments,
     };
     mail
 }
 
 fn replace_images(
     mut body: String,
-    mut attachments: Vec<WebAttachment>,
-) -> (String, Vec<WebAttachment>) {
+    attachments: &mut Vec<WebAttachment>,
+) -> String {
     let regex = match Regex::new(r#"src="cid:[^"]*""#) {
         Ok(r) => r,
         Err(e) => {
             warn!("Failed to compile regex: {e}");
-            return (body.clone(), attachments.clone());
+            return body.clone();
         }
     };
 
@@ -164,7 +163,7 @@ fn replace_images(
         Ok(r) => r,
         Err(e) => {
             warn!("Failed to compile regex: {e}");
-            return (body.clone(), attachments.clone());
+            return body.clone();
         }
     };
 
@@ -208,7 +207,7 @@ fn replace_images(
         }
     });
     attachments.retain(|a| !attachments_to_be_deleted.contains(a));
-    (body.clone(), attachments.clone())
+    body.clone()
 }
 
 fn build_attachments(message: &Message) -> Vec<WebAttachment> {
@@ -285,13 +284,13 @@ fn decode_message(body_raw: &[u8]) -> Message {
 
 fn fetch_html_bodies(
     iterator: BodyPartIterator,
-    attachments: Vec<WebAttachment>,
-) -> Vec<(String, Vec<WebAttachment>)> {
-    let mut bodies: Vec<(String, Vec<WebAttachment>)> = vec![];
+    attachments: &mut Vec<WebAttachment>,
+) -> Vec<String> {
+    let mut bodies: Vec<String> = vec![];
 
     iterator.for_each(|b| {
         let (cow, _, _) = UTF_8.decode(&b.contents());
-        bodies.push(replace_images(cow.to_string(), attachments.clone()));
+        bodies.push(replace_images(cow.to_string(), attachments));
     });
 
     bodies

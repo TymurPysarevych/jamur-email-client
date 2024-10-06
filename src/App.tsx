@@ -1,5 +1,4 @@
 import './App.scss';
-import LoadingComponent from './components/loading/LoadingComponent.tsx';
 import InitialSetup from './components/initial-setup/InitialSetup.tsx';
 import Menu from './components/menu/Menu.tsx';
 import { useRecoilState } from 'recoil';
@@ -7,6 +6,7 @@ import { keychainEntriesState } from './state/atoms.ts';
 import { useEffect, useState } from 'react';
 import { KeychainEntry } from './interfaces/KeychainEntry.ts';
 import { useTauriInvoke } from './utils/UseTauriInvoke.ts';
+import EmailPreview from './components/email/preview/EmailPreview.tsx';
 
 export default function App() {
   const [loadingCredsExist, setLoadingCredsExistState] = useState(true);
@@ -39,7 +39,12 @@ export default function App() {
         <Menu />
       </div>
       <div className="container">
-        <LoadingComponent />
+        <div className="container--email-preview">
+          <EmailPreview />
+        </div>
+        <div className="container--email-view">
+          <h1>Email View</h1>
+        </div>
       </div>
     </div>
   );

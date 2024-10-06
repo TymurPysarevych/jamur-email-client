@@ -9,7 +9,8 @@ pub struct WebEmail {
     pub from: Vec<String>,
     pub to: Vec<String>,
     pub subject: String,
-    pub bodies: Vec<String>,
+    pub html_bodies: Vec<String>,
+    pub text_bodies: Vec<String>,
     pub attachments: Vec<WebAttachment>,
 }
 

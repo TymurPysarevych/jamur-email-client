@@ -5,7 +5,7 @@
 // import { Email } from '../../interfaces/Email.ts';
 // import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
 //
-// export default function EmailComponent() {
+// export default function EmailPreviewComponent() {
 //   const [emails, setEmails] = useState<Array<Email>>([]);
 //   const [invokeFetchEmails] = useTauriInvoke<Array<Email>>('fetch_messages', { server: '', login: '', password: '' });
 //

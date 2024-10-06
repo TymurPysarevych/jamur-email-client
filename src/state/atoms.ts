@@ -1,5 +1,6 @@
 import { atom } from 'recoil';
 import { KeychainEntry } from '../interfaces/KeychainEntry.ts';
+import { Email } from '../interfaces/Email.ts';
 
 export const runningRequestsState = atom<number>({
   key: 'runningRequestsState',
@@ -8,5 +9,10 @@ export const runningRequestsState = atom<number>({
 
 export const keychainEntriesState = atom<Array<KeychainEntry>>({
   key: 'keychainEntriesState',
+  default: []
+});
+
+export const imapEmailsState = atom<Array<Email>>({
+  key: 'imapEmailsState',
   default: []
 });

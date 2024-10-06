@@ -1,0 +1,27 @@
+.email-preview-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.email-preview {
+  border: var(--border-style);
+  padding: 5px;
+  background-color: var(--accent-color);
+
+  &--body {
+    word-break: break-all;
+  }
+}
+
+.email-preview h2 {
+  margin: 0 0 0.5rem 0;
+}
+
+.email-preview p {
+  margin: 0.5rem 0;
+  font-size: 12px;
+}
+
+.email-preview p strong {
+  font-weight: bold;
+}

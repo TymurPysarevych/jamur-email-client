@@ -1,6 +1,6 @@
 import './style.scss';
-import { keychainEntriesState } from '../../state/atoms.ts';
-import { useRecoilValue } from 'recoil';
+import { imapEmailsState, keychainEntriesState } from '../../state/atoms.ts';
+import { useRecoilValue, useSetRecoilState } from 'recoil';
 import { Email } from '../../interfaces/Email.ts';
 import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
 import { KEYCHAIN_KEY_GMAIL, KEYCHAIN_KEY_IMAP, KeychainEntry } from '../../interfaces/KeychainEntry.ts';
@@ -8,6 +8,7 @@ import { GEmail } from '../../interfaces/GEmail.ts';
 
 export default function Menu() {
   const keychainEntries = useRecoilValue(keychainEntriesState);
+  const setImapEmails = useSetRecoilState(imapEmailsState);
   const [fetchImapMessages] = useTauriInvoke<Array<Email>>();
   const [fetchGmailMessages] = useTauriInvoke<Array<GEmail>>();
 
@@ -19,7 +20,7 @@ export default function Menu() {
       });
     } else if (entry.key.startsWith(KEYCHAIN_KEY_IMAP)) {
       fetchImapMessages('fetch_messages', { keychainEntry: entry }).then((emails) => {
-        console.log(emails);
+        setImapEmails(emails);
       });
     } else {
       console.error('Unknown keychain entry:', entry);

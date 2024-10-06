@@ -14,20 +14,20 @@ use crate::structs::google::email::GEmail;
 use crate::structs::imap_email::WebEmail;
 use crate::structs::keychain_entry::KeychainEntry;
 use dotenv::dotenv;
-use log::info;
+use log::{error, info};
 use std::env::var;
 use std::num::TryFromIntError;
+use tauri::{AppHandle, Manager};
 
 #[tauri::command]
-pub async fn fetch_messages(keychain_entry: KeychainEntry) -> Result<Vec<WebEmail>, ()> {
+pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry) {
     let simple_mail_creds = fetch_by_keychain_id(&keychain_entry.id);
     let login = &simple_mail_creds.username;
     let password = &fetch_keyring_entry(KEYCHAIN_KEY_IMAP_PASSWORD, &keychain_entry.id);
     let port = match u16::try_from(simple_mail_creds.imap_port) {
         Ok(p) => p,
         Err(e) => {
-            info!("Error: {}", e);
-            return Err(());
+            panic!("{}", e);
         }
     };
     let host = &*simple_mail_creds.imap_host;
@@ -43,7 +43,9 @@ pub async fn fetch_messages(keychain_entry: KeychainEntry) -> Result<Vec<WebEmai
         .map(|message| parse_message(message))
         .collect::<Vec<WebEmail>>();
     web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
-    Ok(web_emails)
+    web_emails.iter().for_each(|email| {
+        app.emit_all("new_email", email).expect("Could not emit email");
+    });
 }
 
 #[tauri::command]
@@ -90,7 +92,7 @@ pub async fn fetch_by_query(
 }
 
 #[tauri::command]
-pub async fn fetch_gmail_messages(handle: tauri::AppHandle) -> Vec<GEmail> {
+pub async fn fetch_gmail_messages(handle: AppHandle) -> Vec<GEmail> {
     let google_keychain_entries = fetch_keychain_entry_google();
     let handle_clone = handle.clone();
 

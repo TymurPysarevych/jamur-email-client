@@ -1,10 +1,13 @@
+use crate::commands::helper::helper_keyring::fetch_keyring_entry;
+use crate::database::keychain_entry_repository::KEYCHAIN_KEY_IMAP_PASSWORD;
+use crate::database::simple_mail_credentials_repository::fetch_by_keychain_id;
 use crate::structs::access_token::AccessToken;
 use crate::structs::google::email::{EmailLightResponse, GEmail};
 use crate::structs::imap_email::{WebAttachment, WebEmail};
 use crate::structs::keychain_entry::KeychainEntry;
 use base64::engine::general_purpose;
 use base64::Engine;
-use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+use base64::{engine::general_purpose::URL_SAFE};
 use chrono::{DateTime, Utc};
 use encoding_rs::UTF_8;
 use imap::types::Fetch;
@@ -17,7 +20,7 @@ use std::collections::HashSet;
 use std::net::TcpStream;
 use std::time::{Duration, UNIX_EPOCH};
 
-pub async fn open_imap_session(
+async fn login_imap_session(
     host: &str,
     port: u16,
     login: &str,
@@ -68,6 +71,21 @@ pub async fn open_imap_session(
     // };
 
     imap_session
+}
+
+pub async fn open_imap_session(keychain_entry: KeychainEntry) -> Session<TlsStream<TcpStream>> {
+    let simple_mail_creds = fetch_by_keychain_id(&keychain_entry.id);
+    let login = &simple_mail_creds.username;
+    let password = &fetch_keyring_entry(KEYCHAIN_KEY_IMAP_PASSWORD, &keychain_entry.id);
+    let port = match u16::try_from(simple_mail_creds.imap_port) {
+        Ok(p) => p,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    let host = &*simple_mail_creds.imap_host;
+
+    login_imap_session(host, port, login, password).await
 }
 
 fn get_deliver_date(mail: &Message) -> String {

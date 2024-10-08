@@ -1,8 +1,11 @@
 use crate::commands::helper::helper_keyring::save_keyring_entry;
+use crate::commands::helper::helper_messages::open_imap_session;
 use crate::database::keychain_entry_repository::KEYCHAIN_KEY_IMAP_PASSWORD;
 use crate::database::{keychain_entry_repository, simple_mail_credentials_repository};
+use crate::structs::imap_email::{Folder, WebFolders};
 use crate::structs::keychain_entry::KeychainEntry;
 use crate::structs::simple_mail_credentials::WebSimpleMailCredentials;
+use imap::types::NameAttribute;
 
 #[tauri::command]
 pub fn save_imap_config(web_creds: WebSimpleMailCredentials) -> Result<(), ()> {
@@ -20,4 +23,62 @@ pub fn save_imap_config(web_creds: WebSimpleMailCredentials) -> Result<(), ()> {
     });
     simple_mail_credentials_repository::save(&web_creds.config.clone());
     Ok(())
+}
+
+#[tauri::command]
+pub async fn fetch_imap_folders(keychain_entry: KeychainEntry) -> Result<WebFolders, ()> {
+    let mut imap_session = open_imap_session(keychain_entry).await;
+
+    let folders = match imap_session.list(None, Some("*")) {
+        Ok(l) => l,
+        Err(e) => {
+            panic!("Failed to list IMAP folders {}", e);
+        }
+    };
+
+    let names: Vec<String> = folders
+        .into_iter()
+        .map(|f| f.name().to_string())
+        .collect();
+
+    let delimiter = match folders.first() {
+        None => panic!("No folders found"),
+        Some(f) => f.delimiter().or_else(|| Some("/")).unwrap().to_string(),
+    };
+
+    Ok(WebFolders {
+        folders: build_folders_recursively(&names, &delimiter),
+        delimiter
+    })
+}
+
+fn build_folders_recursively(names: &Vec<String>, delimiter: &str) -> Vec<Folder> {
+    let mut folders: Vec<Folder> = Vec::new();
+
+    for name in names {
+        let parts: Vec<&str> = name.split(delimiter).collect();
+        add_folder(&mut folders, &parts);
+    }
+
+    folders
+}
+
+fn add_folder(folders: &mut Vec<Folder>, parts: &[&str]) {
+    if parts.is_empty() {
+        return;
+    }
+
+    let folder_name = parts[0].to_string();
+    let remaining_parts = &parts[1..];
+
+    if let Some(existing_folder) = folders.iter_mut().find(|f| f.folder_name == folder_name) {
+        add_folder(&mut existing_folder.children, remaining_parts);
+    } else {
+        let mut new_folder = Folder {
+            folder_name,
+            children: Box::new(vec![]),
+        };
+        add_folder(&mut new_folder.children, remaining_parts);
+        folders.push(new_folder);
+    }
 }

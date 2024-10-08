@@ -1,45 +1,58 @@
 import './style.scss';
 import { imapEmailsState, keychainEntriesState } from '../../state/atoms.ts';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
-import { Email } from '../../interfaces/Email.ts';
+import { Email, Folder, WebFolders } from '../../interfaces/Email.ts';
 import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
-import { KEYCHAIN_KEY_GMAIL, KEYCHAIN_KEY_IMAP, KeychainEntry } from '../../interfaces/KeychainEntry.ts';
+import { KEYCHAIN_KEY_IMAP } from '../../interfaces/KeychainEntry.ts';
 import { GEmail } from '../../interfaces/GEmail.ts';
-import { listen } from '@tauri-apps/api/event';
+import { useEffect, useState } from 'react';
 
 export default function Menu() {
   const keychainEntries = useRecoilValue(keychainEntriesState);
   const setImapEmails = useSetRecoilState(imapEmailsState);
   const [fetchImapMessages] = useTauriInvoke<Array<Email>>();
   const [fetchGmailMessages] = useTauriInvoke<Array<GEmail>>();
+  const [fetchImapFolders] = useTauriInvoke<WebFolders>();
+  const [subfolderMap, setSubfolderMap] = useState<Map<string, WebFolders>>(new Map<string, WebFolders>());
 
-  const loadEmails = async (entry: KeychainEntry) => {
-    console.log('Loading emails for:', entry);
-    if (entry.key.startsWith(KEYCHAIN_KEY_GMAIL)) {
-      fetchGmailMessages('fetch_gmail_messages').then((emails) => {
-        console.log(emails);
-      });
-    } else if (entry.key.startsWith(KEYCHAIN_KEY_IMAP)) {
-      await newEmail();
-      await fetchImapMessages('fetch_messages', { keychainEntry: entry });
-    } else {
-      console.error('Unknown keychain entry:', entry);
-    }
-  };
+  useEffect(() => {
+    keychainEntries
+      .filter((e) => e.key.startsWith(KEYCHAIN_KEY_IMAP))
+      .forEach((entry) =>
+        fetchImapFolders('fetch_imap_folders', { keychainEntry: entry }).then((folder) => {
+          setSubfolderMap((oldMap) => {
+            const map = new Map(oldMap);
+            map.set(entry.id, folder);
+            return map;
+          });
+        })
+      );
+  }, [keychainEntries]);
 
-  const newEmail = async () => {
-    await listen<Email>('new_email', (event) => {
-      setImapEmails((oldEmails) => [...oldEmails, event.payload]);
+  const buildFoldersForEachEntry = () => {
+    return Array.from(subfolderMap.keys()).map((parent) => {
+      const folders = subfolderMap.get(parent);
+      if (!folders) {
+        return <></>;
+      }
+
+      const buildFolder = (folder: Folder, index: number) => {
+        return (
+          <div key={`${folder}${index}`} className="menu-container--folder">
+            <h2 className="hover">{folder.folderName}</h2>
+            {folder.children.map((child, index) => buildFolder(child, index))}
+          </div>
+        );
+      };
+
+      return (
+        <div key={parent} className="menu-container--entry">
+          <h1 className="hover">{parent}</h1>
+          {folders.folders.map((folder, index) => buildFolder(folder, index))}
+        </div>
+      );
     });
   };
 
-  return (
-    <div className="menu-container">
-      {keychainEntries.map((entry) => (
-        <div className="menu-container--entry" onClick={() => loadEmails(entry)} key={`${entry.key}-${entry.id}`}>
-          {entry.id}
-        </div>
-      ))}
-    </div>
-  );
+  return <div className="menu-container">{buildFoldersForEachEntry()}</div>;
 }

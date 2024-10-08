@@ -1,6 +1,20 @@
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WebFolders {
+    pub folders: Vec<Folder>,
+    pub delimiter: String,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Folder {
+    pub folder_name: String,
+    pub children: Box<Vec<Self>>,
+}
+
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WebEmail {

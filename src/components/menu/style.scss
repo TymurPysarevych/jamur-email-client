@@ -2,9 +2,21 @@
   color: var(--accent-color);
 
   &--entry {
-    margin: 10px 20px 10px 10px;
+    margin: 0px 20px 0px 10px;
+    width: 100%;
+    height: 100%;
+  }
+
+  &--folder {
+    margin: 0px 0px 0px 10px;
     width: 100%;
     height: 100%;
     cursor: pointer;
   }
+}
+
+.hover:hover {
+  width: fit-content;
+  background-color: rgba(128, 128, 128, 0.1);
+  cursor: pointer;
 }

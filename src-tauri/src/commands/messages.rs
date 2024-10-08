@@ -4,37 +4,21 @@ extern crate imap;
 extern crate native_tls;
 
 use crate::commands::google::oauth::renew_token;
-use crate::commands::helper::helper_keyring::fetch_keyring_entry;
 use crate::commands::helper::helper_messages::*;
 use crate::database::keychain_entry_repository::{
-    fetch_keychain_entry_google, KEYCHAIN_KEY_IMAP_PASSWORD,
+    fetch_keychain_entry_google,
 };
-use crate::database::simple_mail_credentials_repository::fetch_by_keychain_id;
 use crate::structs::google::email::GEmail;
 use crate::structs::imap_email::WebEmail;
 use crate::structs::keychain_entry::KeychainEntry;
-use dotenv::dotenv;
-use log::{error, info};
-use std::env::var;
-use std::num::TryFromIntError;
+use log::{info};
 use std::thread;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 #[tauri::command]
 pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry) {
-    let simple_mail_creds = fetch_by_keychain_id(&keychain_entry.id);
-    let login = &simple_mail_creds.username;
-    let password = &fetch_keyring_entry(KEYCHAIN_KEY_IMAP_PASSWORD, &keychain_entry.id);
-    let port = match u16::try_from(simple_mail_creds.imap_port) {
-        Ok(p) => p,
-        Err(e) => {
-            panic!("{}", e);
-        }
-    };
-    let host = &*simple_mail_creds.imap_host;
-
-    let mut imap_session = open_imap_session(host, port, login, password).await;
+    let mut imap_session = open_imap_session(keychain_entry).await;
 
     let messages_stream = imap_session.fetch("1:*", "RFC822").ok();
     imap_session.logout().ok();
@@ -53,22 +37,10 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry) {
 
 #[tauri::command]
 pub async fn fetch_by_query(
-    _server: String,
-    _login: String,
-    _password: String,
+    keychain_entry: KeychainEntry,
     since: String,
 ) -> Result<Vec<WebEmail>, ()> {
-    dotenv().ok();
-    let env_server = var("SERVER").expect("SERVER must be set.");
-    let env_login = var("LOGIN").expect("LOGIN must be set.");
-    let env_password = var("PASSWORD").expect("PASSWORD must be set.");
-    let mut imap_session = open_imap_session(
-        env_server.as_str(),
-        993,
-        env_login.as_str(),
-        env_password.as_str(),
-    )
-        .await;
+    let mut imap_session = open_imap_session(keychain_entry).await;
 
     // since = 20-Jul-2024
 

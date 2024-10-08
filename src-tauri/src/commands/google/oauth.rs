@@ -156,7 +156,7 @@ fn create_client(redirect_url: RedirectUrl) -> BasicClient {
         auth_url.unwrap(),
         token_url.ok(),
     )
-    .set_redirect_uri(redirect_url)
+        .set_redirect_uri(redirect_url)
 }
 
 fn get_available_addr() -> SocketAddr {

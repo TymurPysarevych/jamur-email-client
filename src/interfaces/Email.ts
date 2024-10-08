@@ -15,3 +15,13 @@ export interface EmailAttachment {
   content: Array<number>;
   encoding: string;
 }
+
+export interface WebFolders {
+  folders: Array<Folder>;
+  delimiter: string;
+}
+
+export interface Folder {
+  folderName: String;
+  children: Array<Folder>;
+}

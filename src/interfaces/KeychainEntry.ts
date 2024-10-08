@@ -3,5 +3,5 @@ export const KEYCHAIN_KEY_IMAP: string = 'jamur/imap';
 
 export interface KeychainEntry {
   key: string;
-  id: String;
+  id: string;
 }

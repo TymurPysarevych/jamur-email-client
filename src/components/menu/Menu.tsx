@@ -38,18 +38,22 @@ export default function Menu() {
 
       const buildFolder = (folder: Folder, index: number) => {
         return (
-          <div key={`${folder}${index}`} className="menu-container--folder">
-            <h2 className="hover">{folder.folderName}</h2>
-            {folder.children.map((child, index) => buildFolder(child, index))}
-          </div>
+          <>
+            <div key={`${folder}${index}`} className="menu-container--folder">
+              <div className="menu-container--folder__name">{folder.folderName}</div>
+              {folder.children.map((child, index) => buildFolder(child, index))}
+            </div>
+          </>
         );
       };
 
       return (
-        <div key={parent} className="menu-container--entry">
-          <h1 className="hover">{parent}</h1>
-          {folders.folders.map((folder, index) => buildFolder(folder, index))}
-        </div>
+        <>
+          <div key={parent} className="menu-container--entry">
+            <h1 className="hover">{parent}</h1>
+            {folders.folders.map((folder, index) => buildFolder(folder, index))}
+          </div>
+        </>
       );
     });
   };

@@ -12,11 +12,15 @@
     width: 100%;
     height: 100%;
     cursor: pointer;
-  }
-}
 
-.hover:hover {
-  width: fit-content;
-  background-color: rgba(128, 128, 128, 0.1);
-  cursor: pointer;
+    &__name {
+      padding: 10px;
+      width: fit-content;
+      height: 100%;
+    }
+    &__name:hover {
+      background-color: rgba(128, 128, 128, 0.49);
+      cursor: pointer;
+    }
+  }
 }

@@ -22,6 +22,6 @@ export interface WebFolders {
 }
 
 export interface Folder {
-  folderName: String;
+  folderName: string;
   children: Array<Folder>;
 }

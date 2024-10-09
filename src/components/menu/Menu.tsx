@@ -6,6 +6,7 @@ import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
 import { KEYCHAIN_KEY_IMAP } from '../../interfaces/KeychainEntry.ts';
 import { GEmail } from '../../interfaces/GEmail.ts';
 import { useEffect, useState } from 'react';
+import { SimpleTreeView, TreeItem } from '@mui/x-tree-view';
 
 export default function Menu() {
   const keychainEntries = useRecoilValue(keychainEntriesState);
@@ -14,6 +15,7 @@ export default function Menu() {
   const [fetchGmailMessages] = useTauriInvoke<Array<GEmail>>();
   const [fetchImapFolders] = useTauriInvoke<WebFolders>();
   const [subfolderMap, setSubfolderMap] = useState<Map<string, WebFolders>>(new Map<string, WebFolders>());
+  const [selectedFolder, setSelectedFolder] = useState<string>('');
 
   useEffect(() => {
     keychainEntries
@@ -29,31 +31,42 @@ export default function Menu() {
       );
   }, [keychainEntries]);
 
+  // useEffect(() => {
+  //   if (selectedFolder) {
+  //     keychainEntries
+  //       .filter((e) => e.key.startsWith(KEYCHAIN_KEY_IMAP))
+  //       .forEach((entry) =>
+  //         fetchImapMessages('fetch_imap_messages', { keychainEntry: entry, folder: selectedFolder }).then((emails) => {
+  //           setImapEmails(emails);
+  //         })
+  //       );
+  //   }
+  // }, [selectedFolder]);
+
   const buildFoldersForEachEntry = () => {
     return Array.from(subfolderMap.keys()).map((parent) => {
-      const folders = subfolderMap.get(parent);
-      if (!folders) {
+      const webFolders = subfolderMap.get(parent);
+      if (!webFolders) {
         return <></>;
       }
 
-      const buildFolder = (folder: Folder, index: number) => {
+      const buildFolder = (folder: Folder) => {
         return (
-          <>
-            <div key={`${folder}${index}`} className="menu-container--folder">
-              <div className="menu-container--folder__name">{folder.folderName}</div>
-              {folder.children.map((child, index) => buildFolder(child, index))}
-            </div>
-          </>
+          <TreeItem
+            onClick={() => setSelectedFolder(folder.folderName)}
+            itemId={folder.folderName}
+            label={folder.folderName}
+          >
+            {folder.children.map((child) => buildFolder(child))}
+          </TreeItem>
         );
       };
-
       return (
-        <>
-          <div key={parent} className="menu-container--entry">
-            <h1 className="hover">{parent}</h1>
-            {folders.folders.map((folder, index) => buildFolder(folder, index))}
-          </div>
-        </>
+        <SimpleTreeView>
+          <TreeItem itemId={parent} label={parent}>
+            {webFolders.folders.map((folder) => buildFolder(folder))}
+          </TreeItem>
+        </SimpleTreeView>
       );
     });
   };

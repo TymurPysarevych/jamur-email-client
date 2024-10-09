@@ -1,26 +1,4 @@
 .menu-container {
   color: var(--accent-color);
-
-  &--entry {
-    margin: 0px 20px 0px 10px;
-    width: 100%;
-    height: 100%;
-  }
-
-  &--folder {
-    margin: 0px 0px 0px 10px;
-    width: 100%;
-    height: 100%;
-    cursor: pointer;
-
-    &__name {
-      padding: 10px;
-      width: fit-content;
-      height: 100%;
-    }
-    &__name:hover {
-      background-color: rgba(128, 128, 128, 0.49);
-      cursor: pointer;
-    }
-  }
+  margin-right: 10px;
 }

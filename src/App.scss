@@ -13,6 +13,7 @@
 
 :root {
   --primary-color: #22092c;
+  --primary-color-transparent: rgba(34, 9, 44, 0.95);
   --secondary-color: #872341;
   --accent-color: #e2dfd0;
   --highlight-color: #adaa9e;
@@ -21,18 +22,43 @@
   --disabled-text-color: #b8b7b1;
 
   --border-radius: 8px;
+  --border-style: 1px solid #ccc;
 }
 
 body {
+  margin: 0;
+  padding: 0;
   background-color: var(--primary-color);
-  color: var(--highlight-color);
-  font-family: Arial, sans-serif;
+}
+
+@supports (-webkit-backdrop-filter: none) or (backdrop-filter: none) {
+  body {
+    background-color: var(--primary-color-transparent);
+  }
+}
+
+.main-layout {
+  display: flex;
+  height: -webkit-fill-available;
+}
+
+.menu {
+  border-right: 1px solid var(--accent-color);
 }
 
 .container {
-  padding: 20px;
+  height: -webkit-max-content;
+  width: -webkit-fill-available;
   background-color: var(--secondary-color);
-  border-radius: var(--border-radius);
+
+  &--email-preview {
+    width: 100%;
+    max-width: 300px;
+  }
+
+  &--email-view {
+    padding: 20px;
+  }
 }
 
 .form-container {

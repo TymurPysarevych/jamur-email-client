@@ -1,10 +1,13 @@
+use crate::commands::helper::helper_keyring::fetch_keyring_entry;
+use crate::database::keychain_entry_repository::KEYCHAIN_KEY_IMAP_PASSWORD;
+use crate::database::simple_mail_credentials_repository::fetch_by_keychain_id;
 use crate::structs::access_token::AccessToken;
 use crate::structs::google::email::{EmailLightResponse, GEmail};
 use crate::structs::imap_email::{WebAttachment, WebEmail};
 use crate::structs::keychain_entry::KeychainEntry;
 use base64::engine::general_purpose;
 use base64::Engine;
-use base64::{engine::general_purpose::URL_SAFE, Engine as _};
+use base64::engine::general_purpose::URL_SAFE;
 use chrono::{DateTime, Utc};
 use encoding_rs::UTF_8;
 use imap::types::Fetch;
@@ -17,12 +20,14 @@ use std::collections::HashSet;
 use std::net::TcpStream;
 use std::time::{Duration, UNIX_EPOCH};
 
-pub async fn open_imap_session(
-    server: &str,
+async fn login_imap_session(
+    host: &str,
+    port: u16,
     login: &str,
     password: &str,
+    folder: &str,
 ) -> Session<TlsStream<TcpStream>> {
-    let imap_addr = (server, 993);
+    let imap_addr = (host, port);
     let tcp_stream = match TcpStream::connect(imap_addr) {
         Ok(tcp) => tcp,
         Err(e) => {
@@ -37,7 +42,7 @@ pub async fn open_imap_session(
             panic!("{e}");
         }
     };
-    let tls_stream = match tls.connect(server, tcp_stream) {
+    let tls_stream = match tls.connect(host, tcp_stream) {
         Ok(stream) => stream,
         Err(e) => {
             error!("Failed to connect to TLS stream");
@@ -53,10 +58,33 @@ pub async fn open_imap_session(
             panic!("{}", e.0);
         }
     };
+
+    if folder.eq("") {
+        imap_session
+            .select("INBOX")
+            .expect("Failed to select INBOX");
+    } else {
+        imap_session
+            .select(folder)
+            .expect("Failed to select INBOX");
+    }
+
     imap_session
-        .select("INBOX")
-        .expect("Failed to select INBOX");
-    imap_session
+}
+
+pub async fn open_imap_session(keychain_entry: KeychainEntry, folder: &str) -> Session<TlsStream<TcpStream>> {
+    let simple_mail_creds = fetch_by_keychain_id(&keychain_entry.id);
+    let login = &simple_mail_creds.username;
+    let password = &fetch_keyring_entry(KEYCHAIN_KEY_IMAP_PASSWORD, &keychain_entry.id);
+    let port = match u16::try_from(simple_mail_creds.imap_port) {
+        Ok(p) => p,
+        Err(e) => {
+            panic!("{}", e);
+        }
+    };
+    let host = &*simple_mail_creds.imap_host;
+
+    login_imap_session(host, port, login, password, folder).await
 }
 
 fn get_deliver_date(mail: &Message) -> String {
@@ -86,29 +114,17 @@ pub fn parse_message(message: &Fetch) -> WebEmail {
     let body_raw = message.body().expect("message did not have a body!");
     let message = decode_message(body_raw);
 
-    let all_attachments = build_attachments(&message);
-    let mut bodies: Vec<String> = vec![];
-    let mut attachments: Vec<WebAttachment> = vec![];
+    let mut all_attachments = build_attachments(&message);
+    let mut html_bodies: Vec<String> = vec![];
+    let mut text_bodies: Vec<String> = vec![];
 
     if message.html_body_count().gt(&0) {
-        let html_bodies = fetch_html_bodies(message.html_bodies(), all_attachments);
-        bodies.extend(
-            html_bodies
-                .iter()
-                .map(|b| b.0.clone())
-                .collect::<Vec<String>>(),
-        );
-        attachments.extend(
-            html_bodies
-                .iter()
-                .flat_map(|b| b.1.clone())
-                .collect::<HashSet<WebAttachment>>()
-                .into_iter()
-                .collect::<Vec<WebAttachment>>(),
-        );
-    } else if message.text_body_count().gt(&0) {
-        bodies.extend(fetch_text_bodies(message.text_bodies()));
-        attachments.extend(all_attachments);
+        let bodies = fetch_html_bodies(message.html_bodies(), &mut all_attachments);
+        html_bodies.extend(bodies);
+    }
+
+    if message.text_body_count().gt(&0) {
+        text_bodies.extend(fetch_text_bodies(message.text_bodies()));
     }
 
     let delivered_at = get_deliver_date(&message);
@@ -137,21 +153,22 @@ pub fn parse_message(message: &Fetch) -> WebEmail {
             .map(|a| a.unwrap().to_string())
             .collect::<Vec<String>>(),
         subject: message.subject().unwrap().to_string(),
-        bodies,
-        attachments,
+        html_bodies,
+        text_bodies,
+        attachments: all_attachments,
     };
     mail
 }
 
 fn replace_images(
     mut body: String,
-    mut attachments: Vec<WebAttachment>,
-) -> (String, Vec<WebAttachment>) {
+    attachments: &mut Vec<WebAttachment>,
+) -> String {
     let regex = match Regex::new(r#"src="cid:[^"]*""#) {
         Ok(r) => r,
         Err(e) => {
             warn!("Failed to compile regex: {e}");
-            return (body.clone(), attachments.clone());
+            return body.clone();
         }
     };
 
@@ -163,7 +180,7 @@ fn replace_images(
         Ok(r) => r,
         Err(e) => {
             warn!("Failed to compile regex: {e}");
-            return (body.clone(), attachments.clone());
+            return body.clone();
         }
     };
 
@@ -207,7 +224,7 @@ fn replace_images(
         }
     });
     attachments.retain(|a| !attachments_to_be_deleted.contains(a));
-    (body.clone(), attachments.clone())
+    body.clone()
 }
 
 fn build_attachments(message: &Message) -> Vec<WebAttachment> {
@@ -284,13 +301,13 @@ fn decode_message(body_raw: &[u8]) -> Message {
 
 fn fetch_html_bodies(
     iterator: BodyPartIterator,
-    attachments: Vec<WebAttachment>,
-) -> Vec<(String, Vec<WebAttachment>)> {
-    let mut bodies: Vec<(String, Vec<WebAttachment>)> = vec![];
+    attachments: &mut Vec<WebAttachment>,
+) -> Vec<String> {
+    let mut bodies: Vec<String> = vec![];
 
     iterator.for_each(|b| {
         let (cow, _, _) = UTF_8.decode(&b.contents());
-        bodies.push(replace_images(cow.to_string(), attachments.clone()));
+        bodies.push(replace_images(cow.to_string(), attachments));
     });
 
     bodies

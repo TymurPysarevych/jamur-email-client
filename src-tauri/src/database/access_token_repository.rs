@@ -20,9 +20,11 @@ pub fn fetch_access_token_google(user: String) -> AccessToken {
 
 pub fn save_access_token_google(token: &AccessToken) -> AccessToken {
     let connection = &mut establish_connection();
-    let query_result = diesel::update(access_token)
-        .filter(schema_access_token::keychain_user.eq(&token.keychain_user))
-        .set(schema_access_token::token.eq(&token.token))
+    let query_result = diesel::insert_into(access_token)
+        .values(token)
+        .on_conflict(schema_access_token::keychain_user)
+        .do_update()
+        .set(token)
         .execute(connection);
 
     match query_result {

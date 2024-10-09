@@ -4,7 +4,7 @@ import SmtpSetup from '../smtp-setup/SmtpSetup.tsx';
 
 export default function InitialSetup() {
   return (
-    <div>
+    <div className="initial-setup-container">
       <SmtpSetup />
       <div className="form-container center">
         <hr />

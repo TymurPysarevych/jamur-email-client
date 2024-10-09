@@ -1,6 +1,22 @@
 use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WebFolders {
+    pub folders: Vec<Folder>,
+    pub delimiter: String,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Folder {
+    pub folder_name: String,
+    pub children: Box<Vec<Self>>,
+    pub full_path: String,
+    pub parent: Option<String>
+}
+
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WebEmail {
@@ -9,7 +25,8 @@ pub struct WebEmail {
     pub from: Vec<String>,
     pub to: Vec<String>,
     pub subject: String,
-    pub bodies: Vec<String>,
+    pub html_bodies: Vec<String>,
+    pub text_bodies: Vec<String>,
     pub attachments: Vec<WebAttachment>,
 }
 

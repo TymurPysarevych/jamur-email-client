@@ -1,9 +1,10 @@
-import { invoke } from '@tauri-apps/api/tauri';
 import './style.scss';
+import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
 
 export default function AuthGoogle() {
+  const [invokeAuthenticateGoogle] = useTauriInvoke();
   const login = async () => {
-    await invoke('authenticate_google');
+    await invokeAuthenticateGoogle('authenticate_google');
   };
 
   /**

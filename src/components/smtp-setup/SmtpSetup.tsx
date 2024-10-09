@@ -1,12 +1,15 @@
 import './style.scss';
 import { useState } from 'react';
 import Button from '../../ui/button/Button.tsx';
-import { invoke } from '@tauri-apps/api/tauri';
+import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
+import { Email } from '../../interfaces/Email.ts';
 import { useSetRecoilState } from 'recoil';
-import { loadingState } from '../../state/atoms.ts';
+import { keychainEntriesState } from '../../state/atoms.ts';
+import { KeychainEntry } from '../../interfaces/KeychainEntry.ts';
 
 export default function SmtpSetup() {
-  const setLoading = useSetRecoilState(loadingState);
+  const setKeychainEntries = useSetRecoilState(keychainEntriesState);
+  const [fetchKeychainEntries] = useTauriInvoke<Array<KeychainEntry>>();
   const [email, setEmail] = useState<string>('');
   const [keychainId, setKeychainId] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -14,6 +17,7 @@ export default function SmtpSetup() {
   const [imapPort, setImapPort] = useState<number>();
   const [smtpHost, setSmtpHost] = useState<string>('');
   const [smtpPort, setSmtpPort] = useState<number>();
+  const [invokeSaveImapConfig] = useTauriInvoke<Array<Email>>();
 
   const saveDisabled =
     !email ||
@@ -30,8 +34,7 @@ export default function SmtpSetup() {
     smtpHost.length < 1;
 
   const save = () => {
-    setLoading(true);
-    invoke('save_imap_config', {
+    invokeSaveImapConfig('save_imap_config', {
       webCreds: {
         config: {
           username: email,
@@ -43,7 +46,9 @@ export default function SmtpSetup() {
         },
         password
       }
-    }).finally(() => setLoading(false));
+    }).finally(() => {
+      fetchKeychainEntries('credentials_exist').then((entries) => setKeychainEntries(entries));
+    });
   };
 
   return (

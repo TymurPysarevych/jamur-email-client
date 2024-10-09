@@ -5,50 +5,42 @@ extern crate native_tls;
 
 use crate::commands::google::oauth::renew_token;
 use crate::commands::helper::helper_messages::*;
-use crate::database::keychain_entry_repository::fetch_keychain_entry_google;
+use crate::database::keychain_entry_repository::{
+    fetch_keychain_entry_google,
+};
 use crate::structs::google::email::GEmail;
-use crate::structs::imap_email::WebEmail;
-use dotenv::dotenv;
-use log::info;
-use std::env::var;
+use crate::structs::imap_email::{WebEmail};
+use crate::structs::keychain_entry::KeychainEntry;
+use log::{info};
+use std::thread;
+use std::time::Duration;
+use tauri::{AppHandle, Manager};
 
 #[tauri::command]
-pub async fn fetch_messages(
-    server: String,
-    login: String,
-    password: String,
-) -> Result<Vec<WebEmail>, ()> {
-    let mut imap_session = open_imap_session(&server, &login, &password).await;
+pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folder: String) {
+    let mut imap_session = open_imap_session(keychain_entry, &*folder).await;
 
     let messages_stream = imap_session.fetch("1:*", "RFC822").ok();
     imap_session.logout().ok();
     let messages = messages_stream.unwrap();
 
-    let web_emails: Vec<WebEmail> = messages
+    let mut web_emails: Vec<WebEmail> = messages
         .iter()
         .map(|message| parse_message(message))
         .collect::<Vec<WebEmail>>();
-    // web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
-    Ok(web_emails)
+    web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
+    web_emails.iter().for_each(|email| {
+        app.emit_all("new_email", email).expect("Could not emit email");
+        thread::sleep(Duration::from_millis(200));
+    });
 }
 
 #[tauri::command]
 pub async fn fetch_by_query(
-    _server: String,
-    _login: String,
-    _password: String,
+    keychain_entry: KeychainEntry,
     since: String,
 ) -> Result<Vec<WebEmail>, ()> {
-    dotenv().ok();
-    let env_server = var("SERVER").expect("SERVER must be set.");
-    let env_login = var("LOGIN").expect("LOGIN must be set.");
-    let env_password = var("PASSWORD").expect("PASSWORD must be set.");
-    let mut imap_session = open_imap_session(
-        env_server.as_str(),
-        env_login.as_str(),
-        env_password.as_str(),
-    )
-    .await;
+    let mut imap_session = open_imap_session(keychain_entry, "").await;
 
     // since = 20-Jul-2024
 
@@ -75,7 +67,7 @@ pub async fn fetch_by_query(
 }
 
 #[tauri::command]
-pub async fn fetch_gmail_messages(handle: tauri::AppHandle) -> Vec<GEmail> {
+pub async fn fetch_gmail_messages(handle: AppHandle) -> Vec<GEmail> {
     let google_keychain_entries = fetch_keychain_entry_google();
     let handle_clone = handle.clone();
 

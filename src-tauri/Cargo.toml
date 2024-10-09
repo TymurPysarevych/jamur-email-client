@@ -1,6 +1,6 @@
 [package]
 name = "jamur-email-client"
-version = "0.0.2"
+version = "0.0.3"
 description = "Email Client"
 authors = ["Tymur Pysarevych"]
 edition = "2021"
@@ -9,7 +9,7 @@ edition = "2021"
 tauri-build = { version = "1", features = [] }
 
 [dependencies]
-tauri = { version = "1.7.2", features = ["shell-open", "fs-all", "window-all"] }
+tauri = { version = "1.7.2", features = ["shell-open", "fs-all", "window-all", "macos-private-api"] }
 serde = { version = "1.0.209", features = ["derive"] }
 serde_json = "1.0.127"
 imap = "2.4.1"
@@ -28,7 +28,7 @@ diesel_migrations = { version = "2.2.0", features = ["sqlite"] }
 httparse = "1.9.4"
 
 tokio = { version = "1.40.0", features = ["full"] }
-axum = { version = "0.6.20", features = ["headers"] }
+axum = { version = "0.7.5" }
 oauth2 = "4.4.2"
 reqwest = { version = "0.12.7", default-features = false, features = ["rustls-tls", "json"] }
 open = "5.3.0"

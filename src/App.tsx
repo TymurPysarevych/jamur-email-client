@@ -1,43 +1,51 @@
 import './App.scss';
-import LoadingComponent from './components/loading/LoadingComponent.tsx';
 import InitialSetup from './components/initial-setup/InitialSetup.tsx';
 import Menu from './components/menu/Menu.tsx';
 import { useRecoilState } from 'recoil';
-import { loadingState } from './state/atoms.ts';
+import { keychainEntriesState } from './state/atoms.ts';
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
+import { KeychainEntry } from './interfaces/KeychainEntry.ts';
+import { useTauriInvoke } from './utils/UseTauriInvoke.ts';
+import EmailPreview from './components/email/preview/EmailPreview.tsx';
 
 export default function App() {
-  const [loading, setLoadingState] = useRecoilState(loadingState);
-  const [foundCredentials, setFoundCredentials] = useState(false);
+  const [loadingCredsExist, setLoadingCredsExistState] = useState(true);
+  const [keychainEntries, setKeychainEntries] = useRecoilState(keychainEntriesState);
+  const [fetchKeychainEntries] = useTauriInvoke<Array<KeychainEntry>>();
 
   useEffect(() => {
-    setLoadingState(true);
-    invoke<boolean>('credentials_exist')
-      .then((bool) => setFoundCredentials(bool))
-      .finally(() => setLoadingState(false));
+    setLoadingCredsExistState(true);
+    fetchKeychainEntries('credentials_exist')
+      .then((entries) => setKeychainEntries(entries))
+      .finally(() => {
+        setLoadingCredsExistState(false);
+      });
   }, []);
 
-  if (loading) {
-    return (
-      <>
-        <LoadingComponent />
-      </>
-    );
+  if (loadingCredsExist) {
+    return <></>;
   }
 
-  if (!foundCredentials) {
+  if (keychainEntries.length === 0) {
     return (
       <>
-        <LoadingComponent />
         <InitialSetup />
       </>
     );
   }
   return (
-    <div className="container">
-      <Menu />
-      <LoadingComponent />
+    <div className="main-layout">
+      <div className="menu">
+        <Menu />
+      </div>
+      <div className="container">
+        <div className="container--email-preview">
+          <EmailPreview />
+        </div>
+        <div className="container--email-view">
+          <h1>Email View</h1>
+        </div>
+      </div>
     </div>
   );
 }

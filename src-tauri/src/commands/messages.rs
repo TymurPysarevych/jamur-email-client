@@ -9,7 +9,7 @@ use crate::database::keychain_entry_repository::{
     fetch_keychain_entry_google,
 };
 use crate::structs::google::email::GEmail;
-use crate::structs::imap_email::{Folder, WebEmail};
+use crate::structs::imap_email::{WebEmail};
 use crate::structs::keychain_entry::KeychainEntry;
 use log::{info};
 use std::thread;

@@ -6,11 +6,12 @@ import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
 import { KEYCHAIN_KEY_IMAP } from '../../interfaces/KeychainEntry.ts';
 import { useEffect, useState } from 'react';
 import { SimpleTreeView, TreeItem } from '@mui/x-tree-view';
+import { listen } from '@tauri-apps/api/event';
 
 export default function Menu() {
   const keychainEntries = useRecoilValue(keychainEntriesState);
   const setImapEmails = useSetRecoilState(imapEmailsState);
-  const [fetchImapMessages] = useTauriInvoke<Array<Email>>();
+  const [fetchImapMessages] = useTauriInvoke();
   // const [fetchGmailMessages] = useTauriInvoke<Array<GEmail>>();
   const [fetchImapFolders] = useTauriInvoke<WebFolders>();
   const [subfolderMap, setSubfolderMap] = useState<Map<string, WebFolders>>(new Map<string, WebFolders>());
@@ -34,14 +35,18 @@ export default function Menu() {
     if (selectedFolder) {
       keychainEntries
         .filter((e) => e.key.startsWith(KEYCHAIN_KEY_IMAP))
-        .forEach((entry) =>
+        .forEach(async (entry) => {
+          setImapEmails([]);
+          await listen<Email>('new_email', (event) => {
+            setImapEmails((oldEmails) => {
+              return [...oldEmails, event.payload];
+            });
+          });
           fetchImapMessages('fetch_messages', {
             keychainEntry: entry,
             folder: selectedFolder
-          }).then((emails) => {
-            setImapEmails(emails);
-          })
-        );
+          }).then(() => {});
+        });
     }
   }, [selectedFolder]);
 

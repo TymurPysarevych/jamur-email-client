@@ -56,28 +56,35 @@ fn build_folders_recursively(names: &Vec<String>, delimiter: &str) -> Vec<Folder
 
     for name in names {
         let parts: Vec<&str> = name.split(delimiter).collect();
-        add_folder(&mut folders, &parts);
+        add_folder(&mut folders, &parts, None, "".to_string(), delimiter);
     }
 
     folders
 }
 
-fn add_folder(folders: &mut Vec<Folder>, parts: &[&str]) {
+fn add_folder(folders: &mut Vec<Folder>, parts: &[&str], parent: Option<String>, parent_path: String, delimiter: &str) {
     if parts.is_empty() {
         return;
     }
 
     let folder_name = parts[0].to_string();
     let remaining_parts = &parts[1..];
+    let full_path = if parent_path.is_empty() {
+        folder_name.clone()
+    } else {
+        format!("{}{}{}", parent_path, delimiter, folder_name)
+    };
 
     if let Some(existing_folder) = folders.iter_mut().find(|f| f.folder_name == folder_name) {
-        add_folder(&mut existing_folder.children, remaining_parts);
+        add_folder(&mut existing_folder.children, remaining_parts, Some(folder_name.clone()), full_path.clone(), delimiter);
     } else {
         let mut new_folder = Folder {
-            folder_name,
+            folder_name: folder_name.clone(),
+            full_path: full_path.clone(),
             children: Box::new(vec![]),
+            parent: parent.clone(),
         };
-        add_folder(&mut new_folder.children, remaining_parts);
+        add_folder(&mut new_folder.children, remaining_parts, Some(folder_name), full_path, delimiter);
         folders.push(new_folder);
     }
 }

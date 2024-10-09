@@ -13,6 +13,8 @@ pub struct WebFolders {
 pub struct Folder {
     pub folder_name: String,
     pub children: Box<Vec<Self>>,
+    pub full_path: String,
+    pub parent: Option<String>
 }
 
 #[derive(Deserialize, Serialize, Clone)]

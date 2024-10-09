@@ -24,4 +24,6 @@ export interface WebFolders {
 export interface Folder {
   folderName: string;
   children: Array<Folder>;
+  fullPath: string;
+  parent?: string;
 }

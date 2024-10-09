@@ -4,7 +4,6 @@ import { useRecoilValue, useSetRecoilState } from 'recoil';
 import { Email, Folder, WebFolders } from '../../interfaces/Email.ts';
 import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
 import { KEYCHAIN_KEY_IMAP } from '../../interfaces/KeychainEntry.ts';
-import { GEmail } from '../../interfaces/GEmail.ts';
 import { useEffect, useState } from 'react';
 import { SimpleTreeView, TreeItem } from '@mui/x-tree-view';
 
@@ -12,7 +11,7 @@ export default function Menu() {
   const keychainEntries = useRecoilValue(keychainEntriesState);
   const setImapEmails = useSetRecoilState(imapEmailsState);
   const [fetchImapMessages] = useTauriInvoke<Array<Email>>();
-  const [fetchGmailMessages] = useTauriInvoke<Array<GEmail>>();
+  // const [fetchGmailMessages] = useTauriInvoke<Array<GEmail>>();
   const [fetchImapFolders] = useTauriInvoke<WebFolders>();
   const [subfolderMap, setSubfolderMap] = useState<Map<string, WebFolders>>(new Map<string, WebFolders>());
   const [selectedFolder, setSelectedFolder] = useState<string>('');
@@ -36,7 +35,10 @@ export default function Menu() {
       keychainEntries
         .filter((e) => e.key.startsWith(KEYCHAIN_KEY_IMAP))
         .forEach((entry) =>
-          fetchImapMessages('fetch_messages', { keychainEntry: entry, folder: selectedFolder }).then((emails) => {
+          fetchImapMessages('fetch_messages', {
+            keychainEntry: entry,
+            folder: selectedFolder
+          }).then((emails) => {
             setImapEmails(emails);
           })
         );
@@ -53,8 +55,8 @@ export default function Menu() {
       const buildFolder = (folder: Folder) => {
         return (
           <TreeItem
-            onClick={() => setSelectedFolder(folder.folderName)}
-            itemId={folder.folderName}
+            onClick={() => setSelectedFolder(folder.fullPath)}
+            itemId={folder.fullPath}
             label={folder.folderName}
           >
             {folder.children.map((child) => buildFolder(child))}

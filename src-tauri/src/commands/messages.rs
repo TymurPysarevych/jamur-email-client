@@ -9,7 +9,7 @@ use crate::database::keychain_entry_repository::{
     fetch_keychain_entry_google,
 };
 use crate::structs::google::email::GEmail;
-use crate::structs::imap_email::WebEmail;
+use crate::structs::imap_email::{Folder, WebEmail};
 use crate::structs::keychain_entry::KeychainEntry;
 use log::{info};
 use std::thread;
@@ -17,8 +17,8 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
 #[tauri::command]
-pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry) {
-    let mut imap_session = open_imap_session(keychain_entry).await;
+pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folder: String) {
+    let mut imap_session = open_imap_session(keychain_entry, &*folder).await;
 
     let messages_stream = imap_session.fetch("1:*", "RFC822").ok();
     imap_session.logout().ok();
@@ -40,7 +40,7 @@ pub async fn fetch_by_query(
     keychain_entry: KeychainEntry,
     since: String,
 ) -> Result<Vec<WebEmail>, ()> {
-    let mut imap_session = open_imap_session(keychain_entry).await;
+    let mut imap_session = open_imap_session(keychain_entry, "").await;
 
     // since = 20-Jul-2024
 

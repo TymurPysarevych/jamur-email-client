@@ -31,17 +31,17 @@ export default function Menu() {
       );
   }, [keychainEntries]);
 
-  // useEffect(() => {
-  //   if (selectedFolder) {
-  //     keychainEntries
-  //       .filter((e) => e.key.startsWith(KEYCHAIN_KEY_IMAP))
-  //       .forEach((entry) =>
-  //         fetchImapMessages('fetch_imap_messages', { keychainEntry: entry, folder: selectedFolder }).then((emails) => {
-  //           setImapEmails(emails);
-  //         })
-  //       );
-  //   }
-  // }, [selectedFolder]);
+  useEffect(() => {
+    if (selectedFolder) {
+      keychainEntries
+        .filter((e) => e.key.startsWith(KEYCHAIN_KEY_IMAP))
+        .forEach((entry) =>
+          fetchImapMessages('fetch_messages', { keychainEntry: entry, folder: selectedFolder }).then((emails) => {
+            setImapEmails(emails);
+          })
+        );
+    }
+  }, [selectedFolder]);
 
   const buildFoldersForEachEntry = () => {
     return Array.from(subfolderMap.keys()).map((parent) => {

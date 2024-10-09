@@ -5,7 +5,6 @@ use crate::database::{keychain_entry_repository, simple_mail_credentials_reposit
 use crate::structs::imap_email::{Folder, WebFolders};
 use crate::structs::keychain_entry::KeychainEntry;
 use crate::structs::simple_mail_credentials::WebSimpleMailCredentials;
-use imap::types::NameAttribute;
 
 #[tauri::command]
 pub fn save_imap_config(web_creds: WebSimpleMailCredentials) -> Result<(), ()> {
@@ -27,7 +26,7 @@ pub fn save_imap_config(web_creds: WebSimpleMailCredentials) -> Result<(), ()> {
 
 #[tauri::command]
 pub async fn fetch_imap_folders(keychain_entry: KeychainEntry) -> Result<WebFolders, ()> {
-    let mut imap_session = open_imap_session(keychain_entry).await;
+    let mut imap_session = open_imap_session(keychain_entry,"").await;
 
     let folders = match imap_session.list(None, Some("*")) {
         Ok(l) => l,

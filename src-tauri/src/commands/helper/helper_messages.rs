@@ -7,7 +7,7 @@ use crate::structs::imap_email::{WebAttachment, WebEmail};
 use crate::structs::keychain_entry::KeychainEntry;
 use base64::engine::general_purpose;
 use base64::Engine;
-use base64::{engine::general_purpose::URL_SAFE};
+use base64::engine::general_purpose::URL_SAFE;
 use chrono::{DateTime, Utc};
 use encoding_rs::UTF_8;
 use imap::types::Fetch;
@@ -25,6 +25,7 @@ async fn login_imap_session(
     port: u16,
     login: &str,
     password: &str,
+    folder: &str,
 ) -> Session<TlsStream<TcpStream>> {
     let imap_addr = (host, port);
     let tcp_stream = match TcpStream::connect(imap_addr) {
@@ -58,22 +59,20 @@ async fn login_imap_session(
         }
     };
 
-    imap_session
-        .select("INBOX")
-        .expect("Failed to select INBOX");
-
-    // let list = match imap_session.list(None, Some("*")) {
-    //     Ok(l) => l,
-    //     Err(e) => {
-    //         error!("Failed to list IMAP folders");
-    //         panic!("{e}");
-    //     }
-    // };
+    if folder.eq("") {
+        imap_session
+            .select("INBOX")
+            .expect("Failed to select INBOX");
+    } else {
+        imap_session
+            .select(folder)
+            .expect("Failed to select INBOX");
+    }
 
     imap_session
 }
 
-pub async fn open_imap_session(keychain_entry: KeychainEntry) -> Session<TlsStream<TcpStream>> {
+pub async fn open_imap_session(keychain_entry: KeychainEntry, folder: &str) -> Session<TlsStream<TcpStream>> {
     let simple_mail_creds = fetch_by_keychain_id(&keychain_entry.id);
     let login = &simple_mail_creds.username;
     let password = &fetch_keyring_entry(KEYCHAIN_KEY_IMAP_PASSWORD, &keychain_entry.id);
@@ -85,7 +84,7 @@ pub async fn open_imap_session(keychain_entry: KeychainEntry) -> Session<TlsStre
     };
     let host = &*simple_mail_creds.imap_host;
 
-    login_imap_session(host, port, login, password).await
+    login_imap_session(host, port, login, password, folder).await
 }
 
 fn get_deliver_date(mail: &Message) -> String {

@@ -24,6 +24,7 @@ diesel::table! {
         email_id -> Text,
         delivered_at -> Timestamp,
         subject -> Text,
+        folder_path -> Text,
     }
 }
 

@@ -110,7 +110,7 @@ fn get_deliver_date(mail: &Message) -> String {
     "".to_string()
 }
 
-pub fn parse_message(message: &Fetch) -> WebEmail {
+pub fn parse_message(message: &Fetch, folder_path: String) -> WebEmail {
     let body_raw = message.body().expect("message did not have a body!");
     let message = decode_message(body_raw);
 
@@ -153,6 +153,7 @@ pub fn parse_message(message: &Fetch) -> WebEmail {
             .map(|a| a.unwrap().to_string())
             .collect::<Vec<String>>(),
         subject: message.subject().unwrap().to_string(),
+        folder_path,
         html_bodies,
         text_bodies,
         attachments: all_attachments,

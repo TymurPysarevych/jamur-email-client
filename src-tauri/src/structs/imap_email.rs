@@ -25,6 +25,7 @@ pub struct WebEmail {
     pub from: Vec<String>,
     pub to: Vec<String>,
     pub subject: String,
+    pub folder_path: String,
     pub html_bodies: Vec<String>,
     pub text_bodies: Vec<String>,
     pub attachments: Vec<WebAttachment>,
@@ -47,6 +48,7 @@ pub struct Email {
     pub email_id: String,
     pub delivered_at: String,
     pub subject: String,
+    pub folder_path: String,
 }
 
 #[derive(PartialEq, Clone, Queryable, Selectable, Identifiable, Associations)]

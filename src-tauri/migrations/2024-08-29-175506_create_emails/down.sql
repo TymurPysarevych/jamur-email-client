@@ -3,3 +3,4 @@ DROP TABLE "attachment";
 DROP TABLE "sender";
 DROP TABLE "recipient";
 DROP TABLE "email";
+DROP TABLE "body";

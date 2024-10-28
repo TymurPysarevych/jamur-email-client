@@ -1,11 +1,11 @@
 use crate::database::db_init::establish_connection;
 use crate::database::schema::email::dsl::email as dsl_email;
 use crate::database::schema::{attachment, body, email as schema_email, recipient, sender};
-use crate::structs::imap_email::{Attachment, Body, Email, Recipient, Sender, WebEmail};
+use crate::structs::imap_email::{Attachment, Body, Email, Recipient, Sender, WebEmail, WebEmailPreview};
 use chrono::NaiveDateTime;
 use diesel::associations::HasTable;
 use diesel::result::Error;
-use diesel::{BelongingToDsl, Connection, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
+use diesel::{BelongingToDsl, Connection, ExpressionMethods, QueryDsl, QueryResult, RunQueryDsl, SelectableHelper};
 use log::error;
 
 pub fn fetch_all() -> Result<Vec<WebEmail>, Error> {
@@ -52,6 +52,28 @@ pub fn fetch_all() -> Result<Vec<WebEmail>, Error> {
     Ok(web_emails)
 }
 
+pub fn fetch_by_id_preview(id: i32) -> WebEmailPreview {
+    let connection = &mut establish_connection();
+
+    let all_emails = dsl_email
+        .filter(schema_email::id.eq(id))
+        .select(Email::as_select())
+        .load::<Email>(connection).unwrap_or_else(|e| {
+        error!("Error while fetching email: {:?}", e);
+        vec![]
+    });
+
+    let email = if all_emails.len() == 0 {
+        return panic!("No email with ID: {}", id);
+    } else if all_emails.len() > 1 {
+        return panic!("Multiple emails with same ID: {}", id);
+    } else {
+        all_emails.first().unwrap()
+    };
+
+    map_email_to_web_email_preview(email.clone())
+}
+
 pub fn fetch_by_id(id: i32) -> Result<WebEmail, Error> {
     let connection = &mut establish_connection();
 
@@ -61,7 +83,7 @@ pub fn fetch_by_id(id: i32) -> Result<WebEmail, Error> {
         .load::<Email>(connection)?;
 
     let email = if all_emails.len() == 0 {
-        return Err(Error::NotFound);
+        return panic!("No email with ID: {}", id);
     } else if all_emails.len() > 1 {
         return panic!("Multiple emails with same ID: {}", id);
     } else {
@@ -70,19 +92,31 @@ pub fn fetch_by_id(id: i32) -> Result<WebEmail, Error> {
 
     let attachments = Attachment::belonging_to(email)
         .select(Attachment::as_select())
-        .load::<Attachment>(connection)?;
+        .load::<Attachment>(connection).unwrap_or_else(|e| {
+        error!("Error while fetching attachments: {:?}", e);
+        vec![]
+    });
 
     let recipients = Recipient::belonging_to(email)
         .select(Recipient::as_select())
-        .load::<Recipient>(connection)?;
+        .load::<Recipient>(connection).unwrap_or_else(|e| {
+        error!("Error while fetching recipients: {:?}", e);
+        vec![]
+    });
 
     let senders = Sender::belonging_to(email)
         .select(Sender::as_select())
-        .load::<Sender>(connection)?;
+        .load::<Sender>(connection).unwrap_or_else(|e| {
+        error!("Error while fetching senders: {:?}", e);
+        vec![]
+    });
 
     let bodies = Body::belonging_to(email)
         .select(Body::as_select())
-        .load::<Body>(connection)?;
+        .load::<Body>(connection).unwrap_or_else(|e| {
+        error!("Error while fetching bodies: {:?}", e);
+        vec![]
+    });
 
     Ok(WebEmail {
         id: email.id.clone(),
@@ -98,44 +132,17 @@ pub fn fetch_by_id(id: i32) -> Result<WebEmail, Error> {
     })
 }
 
-pub fn fetch_all_by_folder_path(folder_path: String) -> Result<Vec<WebEmail>, Error> {
+pub fn fetch_all_by_folder_path(folder_path: String) -> Result<Vec<WebEmailPreview>, Error> {
     let connection = &mut establish_connection();
 
     let all_emails = dsl_email
         .filter(schema_email::folder_path.eq(folder_path))
         .select(Email::as_select())
         .load::<Email>(connection)?;
-
-    let attachments = Attachment::belonging_to(&all_emails)
-        .select(Attachment::as_select())
-        .load::<Attachment>(connection)?;
-
-    let recipients = Recipient::belonging_to(&all_emails)
-        .select(Recipient::as_select())
-        .load::<Recipient>(connection)?;
-
-    let senders = Sender::belonging_to(&all_emails)
-        .select(Sender::as_select())
-        .load::<Sender>(connection)?;
-
-    let bodies = Body::belonging_to(&all_emails)
-        .select(Body::as_select())
-        .load::<Body>(connection)?;
-
     let mut web_emails = Vec::new();
+
     for email in all_emails {
-        web_emails.push(WebEmail {
-            id: email.id,
-            folder_path: email.folder_path.clone(),
-            subject: email.subject.clone(),
-            delivered_at: email.delivered_at.clone(),
-            attachments: attachments.iter().map(|a| a.clone()).collect(),
-            to: recipients.iter().map(|r| r.address.clone()).collect(),
-            from: senders.iter().map(|s| s.address.clone()).collect(),
-            html_bodies: bodies.iter().filter(|b| b.is_html).map(|b| b.content.clone()).collect(),
-            text_bodies: bodies.iter().filter(|b| !b.is_html).map(|b| b.content.clone()).collect(),
-            email_id: email.email_id,
-        });
+        web_emails.push(map_email_to_web_email_preview(email));
     }
 
     web_emails.sort_by(|a, b| a.delivered_at.cmp(&b.delivered_at));
@@ -167,9 +174,9 @@ pub fn save_full_email(web_email: &mut WebEmail) -> Result<(), Error> {
             encoding: web_attachment.encoding.clone(),
             email_id: web_email.id,
         };
-    diesel::insert_into(attachment::dsl::attachment)
-        .values(&db_attachment)
-        .execute(conn)?;
+        diesel::insert_into(attachment::dsl::attachment)
+            .values(&db_attachment)
+            .execute(conn)?;
     }
 
     for recipient_address in &web_email.to {
@@ -278,5 +285,58 @@ pub fn email_already_exists(id: &String, delivered_at: &NaiveDateTime) -> Option
         Err(_e) => {
             None
         }
+    }
+}
+
+pub fn map_email_to_web_email_preview(email: Email) -> WebEmailPreview {
+    let connection = &mut establish_connection();
+
+    let recipients = Recipient::belonging_to(&email)
+        .select(Recipient::as_select())
+        .load::<Recipient>(connection).unwrap_or_else(|e| {
+        error!("Error while fetching recipients: {:?}", e);
+        vec![]
+    });
+
+    let senders = Sender::belonging_to(&email)
+        .select(Sender::as_select())
+        .load::<Sender>(connection).unwrap_or_else(|e| {
+        error!("Error while fetching senders: {:?}", e);
+        vec![]
+    });
+
+    let body = Body::belonging_to(&email)
+        .select(Body::as_select())
+        .filter(body::is_html.eq(false))
+        .first::<Body>(connection).unwrap_or_else(|e| {
+        error!("Error while fetching body: {:?}", e);
+        Body {
+            id: None,
+            email_id: None,
+            content: "".to_string(),
+            is_html: false,
+        }
+    });
+
+    let preview_body = slice_text(&body.content, 150);
+
+    let subject = slice_text(&email.subject, 50);
+
+    WebEmailPreview {
+        id: email.id,
+        subject,
+        delivered_at: email.delivered_at.clone(),
+        to: recipients.iter().map(|r| r.address.clone()).collect(),
+        from: senders.iter().map(|s| s.address.clone()).collect(),
+        preview_body,
+    }
+}
+
+fn slice_text(text: &String, length: usize) -> String {
+    if text.len() > length {
+        let text_vec = text.chars().collect::<Vec<_>>();
+        format!("{}...", text_vec[..length].iter().cloned().collect::<String>())
+    } else {
+        text.clone()
     }
 }

@@ -1,7 +1,7 @@
 import './style.scss';
 import { imapEmailsState, keychainEntriesState } from '../../state/atoms.ts';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
-import { Email, Folder, WebFolders } from '../../interfaces/Email.ts';
+import { Folder, WebEmailPreview, WebFolders } from '../../interfaces/Email.ts';
 import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
 import { KEYCHAIN_KEY_IMAP } from '../../interfaces/KeychainEntry.ts';
 import { useEffect, useState } from 'react';
@@ -37,10 +37,8 @@ export default function Menu() {
         .filter((e) => e.key.startsWith(KEYCHAIN_KEY_IMAP))
         .forEach(async (entry) => {
           setImapEmails([]);
-          await listen<Email>('new_email', (event) => {
-            setImapEmails((oldEmails) => {
-              return [...oldEmails, event.payload];
-            });
+          await listen<Array<WebEmailPreview>>('new_emails', (event) => {
+            setImapEmails(event.payload);
           });
           fetchImapMessages('fetch_messages', {
             keychainEntry: entry,

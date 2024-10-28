@@ -7,20 +7,21 @@ use crate::commands::google::oauth::renew_token;
 use crate::commands::helper::helper_messages::*;
 use crate::database::keychain_entry_repository::fetch_keychain_entry_google;
 use crate::structs::google::email::GEmail;
-use crate::structs::imap_email::WebEmail;
+use crate::structs::imap_email::{WebEmail, WebEmailPreview};
 use crate::structs::keychain_entry::KeychainEntry;
 use log::{error, info};
 use std::time::Duration;
 use chrono::NaiveDateTime;
 use diesel::{QueryResult, RunQueryDsl};
 use diesel::result::Error;
+use imap::types::{Fetch, ZeroCopy};
 use tauri::{AppHandle, Manager};
 use crate::database::email_repository;
 use crate::database::schema::email::folder_path;
 
 #[tauri::command]
 pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folder: String) {
-    let mut web_emails = vec![];
+    let mut web_emails: Vec<WebEmailPreview> = vec![];
 
     let mut db_emails = match email_repository::fetch_all_by_folder_path(folder.clone()) {
         Ok(m) => m,
@@ -34,11 +35,14 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folde
         let mut imap_session = open_imap_session(keychain_entry, &*folder).await;
         let messages_stream = imap_session.fetch("1:*", "RFC822").ok();
         imap_session.logout().ok();
-        let messages = messages_stream.unwrap();
+        let messages = match messages_stream {
+            None => panic!("No messages"),
+            Some(m) => m,
+        };
         web_emails = messages
             .iter()
             .map(|message| parse_message(message, folder.clone()))
-            .collect::<Vec<WebEmail>>();
+            .collect::<Vec<WebEmailPreview>>();
     } else {
         let last_email = db_emails.first();
 
@@ -51,10 +55,7 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folde
 
     web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
 
-    for email in web_emails {
-        app.emit_all("new_email", email).expect("Could not emit email");
-        tokio::time::sleep(Duration::from_millis(100)).await;
-    }
+    app.emit_all("new_emails", web_emails).expect("Could not emit email");
 }
 
 #[tauri::command]
@@ -62,14 +63,14 @@ pub async fn fetch_by_query(
     keychain_entry: KeychainEntry,
     since: NaiveDateTime,
     folder: String,
-) -> Result<Vec<WebEmail>, ()> {
+) -> Result<Vec<WebEmailPreview>, ()> {
     let mut imap_session = open_imap_session(keychain_entry, &*folder).await;
     let formated_since = since.format("%d-%b-%Y").to_string();
     let uids = imap_session
         .uid_search(format!("NEW SINCE {}", formated_since))
         .unwrap();
 
-    let mut web_emails: Vec<WebEmail> = vec![];
+    let mut web_emails: Vec<WebEmailPreview> = vec![];
 
     for uid in uids {
         let messages_stream = imap_session.uid_fetch(format!("{}", uid), "BODY[]").ok().unwrap();

@@ -9,6 +9,15 @@ export interface Email {
   attachments: Array<EmailAttachment>;
 }
 
+export interface WebEmailPreview {
+  id: string;
+  deliveredAt: Date;
+  to: Array<string>;
+  from: Array<string>;
+  subject: string;
+  previewBody: string;
+}
+
 export interface EmailAttachment {
   filename: string;
   contentId: string;

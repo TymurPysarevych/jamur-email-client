@@ -15,10 +15,20 @@ pub struct Folder {
     pub folder_name: String,
     pub children: Box<Vec<Self>>,
     pub full_path: String,
-    pub parent: Option<String>
+    pub parent: Option<String>,
 }
 
-#[derive(Queryable, Insertable, Identifiable, Selectable, Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(
+    Queryable,
+    Insertable,
+    Identifiable,
+    Selectable,
+    Deserialize,
+    Serialize,
+    Debug,
+    Clone,
+    PartialEq
+)]
 #[diesel(table_name = crate::database::schema::email)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
 pub struct Email {
@@ -41,7 +51,18 @@ impl From<WebEmail> for Email {
     }
 }
 
-#[derive(Queryable, Insertable, Identifiable, Associations, Selectable, Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(
+    Queryable,
+    Insertable,
+    Identifiable,
+    Associations,
+    Selectable,
+    Deserialize,
+    Serialize,
+    Debug,
+    Clone,
+    PartialEq
+)]
 #[diesel(table_name = crate::database::schema::body)]
 #[diesel(belongs_to(Email, foreign_key = email_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
@@ -52,7 +73,20 @@ pub struct Body {
     pub is_html: bool,
 }
 
-#[derive(PartialEq, Clone, Queryable, Insertable, Selectable, Identifiable, Associations, Hash, Eq, Deserialize, Serialize, Debug)]
+#[derive(
+    PartialEq,
+    Clone,
+    Queryable,
+    Insertable,
+    Selectable,
+    Identifiable,
+    Associations,
+    Hash,
+    Eq,
+    Deserialize,
+    Serialize,
+    Debug
+)]
 #[diesel(table_name = crate::database::schema::attachment)]
 #[diesel(belongs_to(Email, foreign_key = email_id))]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
@@ -104,6 +138,17 @@ pub struct WebEmail {
     pub html_bodies: Vec<String>,
     pub text_bodies: Vec<String>,
     pub attachments: Vec<Attachment>,
+}
+
+#[derive(Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WebEmailPreview {
+    pub id: Option<i32>,
+    pub delivered_at: NaiveDateTime,
+    pub from: Vec<String>,
+    pub to: Vec<String>,
+    pub subject: String,
+    pub preview_body: String,
 }
 
 impl From<Email> for WebEmail {

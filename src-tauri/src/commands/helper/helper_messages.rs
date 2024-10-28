@@ -4,7 +4,7 @@ use crate::database::keychain_entry_repository::KEYCHAIN_KEY_IMAP_PASSWORD;
 use crate::database::simple_mail_credentials_repository::fetch_by_keychain_id;
 use crate::structs::access_token::AccessToken;
 use crate::structs::google::email::{EmailLightResponse, GEmail};
-use crate::structs::imap_email::{Attachment, Email, WebEmail};
+use crate::structs::imap_email::{Attachment, Email, WebEmail, WebEmailPreview};
 use crate::structs::keychain_entry::KeychainEntry;
 use base64::engine::general_purpose;
 use base64::engine::general_purpose::URL_SAFE;
@@ -120,7 +120,7 @@ fn get_deliver_date(mail: &Message) -> NaiveDateTime {
     panic!("Failed to find delivery date");
 }
 
-pub fn parse_message(message: &Fetch, folder_path: String) -> WebEmail {
+pub fn parse_message(message: &Fetch, folder_path: String) -> WebEmailPreview {
     let body_raw = message.body().expect("message did not have a body!");
     let message = decode_message(body_raw);
 
@@ -185,12 +185,9 @@ pub fn parse_message(message: &Fetch, folder_path: String) -> WebEmail {
             }
         };
 
-        mail
+        email_repository::fetch_by_id_preview(mail.id.unwrap())
     } else {
-        match email_repository::fetch_by_id(is_new_email.unwrap().id.unwrap()) {
-            Ok(e) => e,
-            Err(e) => panic!("Error while fetching email: {}", e),
-        }
+        email_repository::fetch_by_id_preview(is_new_email.unwrap().id.unwrap())
     }
 }
 

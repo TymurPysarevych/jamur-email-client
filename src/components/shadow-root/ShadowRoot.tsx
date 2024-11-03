@@ -1,4 +1,4 @@
-import { open } from '@tauri-apps/api/shell';
+import { open } from '@tauri-apps/plugin-shell';
 
 export default function ShadowRoot({ child }: { child: JSX.Element }) {
   const attachShadow = (host: any) => {

@@ -5,64 +5,88 @@ extern crate native_tls;
 
 use crate::commands::google::oauth::renew_token;
 use crate::commands::helper::helper_messages::*;
-use crate::database::keychain_entry_repository::{
-    fetch_keychain_entry_google,
-};
+use crate::database::email_repository;
+use crate::database::keychain_entry_repository::fetch_keychain_entry_google;
 use crate::structs::google::email::GEmail;
-use crate::structs::imap_email::{WebEmail};
+use crate::structs::imap_email::WebEmailPreview;
 use crate::structs::keychain_entry::KeychainEntry;
-use log::{info};
-use std::thread;
-use std::time::Duration;
-use tauri::{AppHandle, Manager};
+use chrono::NaiveDateTime;
+use log::error;
+use tauri::{AppHandle, Emitter};
 
 #[tauri::command]
 pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folder: String) {
-    let mut imap_session = open_imap_session(keychain_entry, &*folder).await;
+    let mut web_emails: Vec<WebEmailPreview> = vec![];
 
-    let messages_stream = imap_session.fetch("1:*", "RFC822").ok();
-    imap_session.logout().ok();
-    let messages = messages_stream.unwrap();
+    let db_emails = match email_repository::fetch_all_by_folder_path(folder.clone()) {
+        Ok(m) => m,
+        Err(e) => {
+            error!(
+                "Error while fetching all emails in folder: {} \n {:?}",
+                folder, e
+            );
+            vec![]
+        }
+    };
 
-    let mut web_emails: Vec<WebEmail> = messages
-        .iter()
-        .map(|message| parse_message(message))
-        .collect::<Vec<WebEmail>>();
+    if db_emails.len() == 0 {
+        let mut imap_session = open_imap_session(keychain_entry, &*folder).await;
+        let messages_stream = imap_session.fetch("1:*", "RFC822").ok();
+        imap_session.logout().ok();
+        if messages_stream.is_some() {
+            let messages = messages_stream.unwrap();
+            web_emails = messages
+                .iter()
+                .map(|message| parse_message(message, folder.clone()))
+                .collect::<Vec<WebEmailPreview>>();
+        }
+    } else {
+        let last_email = db_emails.first();
+
+        if last_email.is_some() {
+            web_emails = fetch_by_query(
+                keychain_entry,
+                last_email.unwrap().delivered_at.clone(),
+                folder,
+            )
+            .await
+            .unwrap();
+        }
+    }
+
+    web_emails.extend(db_emails);
+
     web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
-    web_emails.iter().for_each(|email| {
-        app.emit_all("new_email", email).expect("Could not emit email");
-        thread::sleep(Duration::from_millis(200));
-    });
+
+    app.emit("new_emails", web_emails)
+        .expect("Could not emit email");
 }
 
 #[tauri::command]
 pub async fn fetch_by_query(
     keychain_entry: KeychainEntry,
-    since: String,
-) -> Result<Vec<WebEmail>, ()> {
-    let mut imap_session = open_imap_session(keychain_entry, "").await;
-
-    // since = 20-Jul-2024
-
+    since: NaiveDateTime,
+    folder: String,
+) -> Result<Vec<WebEmailPreview>, ()> {
+    let mut imap_session = open_imap_session(keychain_entry, &*folder).await;
+    let formated_since = since.format("%d-%b-%Y").to_string();
     let uids = imap_session
-        .uid_search(format!("SEEN SINCE {}", since))
+        .uid_search(format!("NEW SINCE {}", formated_since))
         .unwrap();
-    info!("{} messages seen since {}", uids.len(), since);
 
-    let mut web_emails: Vec<WebEmail> = vec![];
+    let mut web_emails: Vec<WebEmailPreview> = vec![];
 
     for uid in uids {
-        let messages_stream = imap_session.uid_fetch(format!("{}", uid), "BODY[]").ok();
-
-        let messages = messages_stream.unwrap();
-
-        let message = messages.first().unwrap();
-
-        web_emails.push(parse_message(message));
+        let messages_stream = imap_session
+            .uid_fetch(format!("{}", uid), "BODY[]")
+            .ok()
+            .unwrap();
+        let message = messages_stream.first();
+        if message.is_some() {
+            web_emails.push(parse_message(message.unwrap(), folder.clone()));
+        }
     }
-
     imap_session.logout().ok();
-
     Ok(web_emails)
 }
 

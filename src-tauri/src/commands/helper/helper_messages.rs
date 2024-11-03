@@ -1,24 +1,24 @@
 use crate::commands::helper::helper_keyring::fetch_keyring_entry;
+use crate::database::email_repository;
 use crate::database::keychain_entry_repository::KEYCHAIN_KEY_IMAP_PASSWORD;
 use crate::database::simple_mail_credentials_repository::fetch_by_keychain_id;
 use crate::structs::access_token::AccessToken;
 use crate::structs::google::email::{EmailLightResponse, GEmail};
-use crate::structs::imap_email::{WebAttachment, WebEmail};
+use crate::structs::imap_email::{Attachment, WebEmail, WebEmailPreview};
 use crate::structs::keychain_entry::KeychainEntry;
 use base64::engine::general_purpose;
-use base64::Engine;
 use base64::engine::general_purpose::URL_SAFE;
-use chrono::{DateTime, Utc};
+use base64::Engine;
+use chrono::{DateTime, NaiveDateTime};
 use encoding_rs::UTF_8;
 use imap::types::Fetch;
 use imap::{Client, Session};
 use log::{error, warn};
-use mail_parser::{BodyPartIterator, Header, Message, MessageParser, MimeHeaders};
+use mail_parser::{BodyPartIterator, Message, MessageParser, MimeHeaders};
 use native_tls::{TlsConnector, TlsStream};
 use regex::Regex;
 use std::collections::HashSet;
 use std::net::TcpStream;
-use std::time::{Duration, UNIX_EPOCH};
 
 async fn login_imap_session(
     host: &str,
@@ -64,15 +64,16 @@ async fn login_imap_session(
             .select("INBOX")
             .expect("Failed to select INBOX");
     } else {
-        imap_session
-            .select(folder)
-            .expect("Failed to select INBOX");
+        imap_session.select(folder).expect("Failed to select INBOX");
     }
 
     imap_session
 }
 
-pub async fn open_imap_session(keychain_entry: KeychainEntry, folder: &str) -> Session<TlsStream<TcpStream>> {
+pub async fn open_imap_session(
+    keychain_entry: KeychainEntry,
+    folder: &str,
+) -> Session<TlsStream<TcpStream>> {
     let simple_mail_creds = fetch_by_keychain_id(&keychain_entry.id);
     let login = &simple_mail_creds.username;
     let password = &fetch_keyring_entry(KEYCHAIN_KEY_IMAP_PASSWORD, &keychain_entry.id);
@@ -87,83 +88,119 @@ pub async fn open_imap_session(keychain_entry: KeychainEntry, folder: &str) -> S
     login_imap_session(host, port, login, password, folder).await
 }
 
-fn get_deliver_date(mail: &Message) -> String {
-    let mut delivered: Option<Header> = None;
-
+fn get_deliver_date(mail: &Message) -> NaiveDateTime {
     for part in mail.clone().parts {
         for header in part.headers {
             if header.name().eq("X-Delivery-Time") {
-                delivered = Some(header.clone());
-                break;
+                let delivered = header.clone();
+
+                let str_timestamp = delivered.value.as_text().unwrap();
+                let timestamp = str_timestamp.parse::<i64>().unwrap();
+                let date_time = match DateTime::from_timestamp(timestamp, 0) {
+                    None => panic!("Failed to parse date"),
+                    Some(d) => d,
+                };
+                return date_time.naive_utc();
+            } else if header.name().eq("Received") {
+                let option_received = header.value.as_received().unwrap().date;
+                if option_received.is_some() {
+                    let received = option_received.unwrap();
+                    let date_time = match DateTime::from_timestamp(received.to_timestamp(), 0) {
+                        None => panic!("Failed to parse date"),
+                        Some(d) => d,
+                    };
+                    return date_time.naive_utc();
+                }
+            } else if header.name().eq("Date") {
+                let date = header.value.as_datetime().unwrap();
+                let date_time = match DateTime::from_timestamp(date.to_timestamp(), 0) {
+                    None => panic!("Failed to parse date"),
+                    Some(d) => d,
+                };
+                return date_time.naive_utc();
             }
         }
     }
 
-    let d = delivered.clone();
-
-    if d.is_some() {
-        let epoch = d.unwrap().value.as_text().unwrap().parse::<u64>().unwrap();
-        let d = UNIX_EPOCH + Duration::from_secs(epoch);
-        let datetime = DateTime::<Utc>::from(d);
-        return datetime.format("%d-%m-%Y %H:%M:%S").to_string();
-    }
-    "".to_string()
+    panic!("Failed to find delivery date");
 }
 
-pub fn parse_message(message: &Fetch) -> WebEmail {
+pub fn parse_message(message: &Fetch, folder_path: String) -> WebEmailPreview {
     let body_raw = message.body().expect("message did not have a body!");
     let message = decode_message(body_raw);
 
-    let mut all_attachments = build_attachments(&message);
-    let mut html_bodies: Vec<String> = vec![];
-    let mut text_bodies: Vec<String> = vec![];
-
-    if message.html_body_count().gt(&0) {
-        let bodies = fetch_html_bodies(message.html_bodies(), &mut all_attachments);
-        html_bodies.extend(bodies);
-    }
-
-    if message.text_body_count().gt(&0) {
-        text_bodies.extend(fetch_text_bodies(message.text_bodies()));
-    }
-
-    let delivered_at = get_deliver_date(&message);
-    let from_addresses = message
-        .from()
-        .unwrap()
-        .as_list()
-        .into_iter()
-        .flat_map(|a| a.first())
-        .map(|a| a.address.clone());
-    let to_addresses = message
-        .to()
-        .unwrap()
-        .as_list()
-        .into_iter()
-        .flat_map(|a| a.first())
-        .map(|a| a.address.clone());
-
-    let mail = WebEmail {
-        id: message.message_id().unwrap().to_string(),
-        delivered_at,
-        from: from_addresses
-            .map(|a| a.unwrap().to_string())
-            .collect::<Vec<String>>(),
-        to: to_addresses
-            .map(|a| a.unwrap().to_string())
-            .collect::<Vec<String>>(),
-        subject: message.subject().unwrap().to_string(),
-        html_bodies,
-        text_bodies,
-        attachments: all_attachments,
+    let message_id = match message.message_id() {
+        None => "".to_string(),
+        Some(s) => s.to_string(),
     };
-    mail
+    let delivered_at = get_deliver_date(&message);
+    let is_new_email = email_repository::email_already_exists(&message_id, &delivered_at);
+
+    if is_new_email.is_none() {
+        let mut all_attachments = build_attachments(&message);
+        let mut html_bodies: Vec<String> = vec![];
+        let mut text_bodies: Vec<String> = vec![];
+
+        if message.html_body_count().gt(&0) {
+            let bodies = fetch_html_bodies(message.html_bodies(), &mut all_attachments);
+            html_bodies.extend(bodies);
+        }
+
+        if message.text_body_count().gt(&0) {
+            text_bodies.extend(fetch_text_bodies(message.text_bodies()));
+        }
+
+        let from_addresses = message
+            .from()
+            .unwrap()
+            .as_list()
+            .into_iter()
+            .flat_map(|a| a.first())
+            .map(|a| a.address.clone());
+        let to_addresses = message
+            .to()
+            .unwrap()
+            .as_list()
+            .into_iter()
+            .flat_map(|a| a.first())
+            .map(|a| a.address.clone());
+
+        let subject = match message.subject() {
+            None => "".to_string(),
+            Some(s) => s.to_string(),
+        };
+
+        let mut mail = WebEmail {
+            id: None,
+            email_id: message_id.clone(),
+            delivered_at,
+            from: from_addresses
+                .map(|a| a.unwrap().to_string())
+                .collect::<Vec<String>>(),
+            to: to_addresses
+                .map(|a| a.unwrap().to_string())
+                .collect::<Vec<String>>(),
+            subject,
+            folder_path,
+            html_bodies,
+            text_bodies,
+            attachments: all_attachments,
+        };
+
+        match email_repository::save_full_email(&mut mail) {
+            Ok(_) => {}
+            Err(e) => {
+                panic!("Error while saving email: {} \n {}", mail.subject, e)
+            }
+        };
+
+        email_repository::fetch_by_id_preview(mail.id.unwrap())
+    } else {
+        email_repository::fetch_by_id_preview(is_new_email.unwrap().id.unwrap())
+    }
 }
 
-fn replace_images(
-    mut body: String,
-    attachments: &mut Vec<WebAttachment>,
-) -> String {
+fn replace_images(mut body: String, attachments: &mut Vec<Attachment>) -> String {
     let regex = match Regex::new(r#"src="cid:[^"]*""#) {
         Ok(r) => r,
         Err(e) => {
@@ -185,7 +222,7 @@ fn replace_images(
     };
 
     let mut replaced_body = "".to_string();
-    let mut attachments_to_be_deleted: HashSet<WebAttachment> = HashSet::new();
+    let mut attachments_to_be_deleted: HashSet<Attachment> = HashSet::new();
     caps.into_iter().for_each(|cap| {
         replaced_body = body.clone();
 
@@ -227,8 +264,8 @@ fn replace_images(
     body.clone()
 }
 
-fn build_attachments(message: &Message) -> Vec<WebAttachment> {
-    let mut attachments: Vec<WebAttachment> = vec![];
+fn build_attachments(message: &Message) -> Vec<Attachment> {
+    let mut attachments: Vec<Attachment> = vec![];
 
     message.attachments.iter().for_each(|attachment_index| {
         let optional_part = message.parts.get(*attachment_index);
@@ -276,11 +313,13 @@ fn build_attachments(message: &Message) -> Vec<WebAttachment> {
                 .unwrap()
                 .to_string();
 
-            attachments.push(WebAttachment {
+            attachments.push(Attachment {
+                id: None,
                 filename,
                 content_id,
                 content: part.contents().to_vec(),
                 encoding,
+                email_id: None,
             });
         }
     });
@@ -299,10 +338,7 @@ fn decode_message(body_raw: &[u8]) -> Message {
     mail.into_owned()
 }
 
-fn fetch_html_bodies(
-    iterator: BodyPartIterator,
-    attachments: &mut Vec<WebAttachment>,
-) -> Vec<String> {
+fn fetch_html_bodies(iterator: BodyPartIterator, attachments: &mut Vec<Attachment>) -> Vec<String> {
     let mut bodies: Vec<String> = vec![];
 
     iterator.for_each(|b| {

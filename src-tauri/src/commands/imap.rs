@@ -26,7 +26,7 @@ pub fn save_imap_config(web_creds: WebSimpleMailCredentials) -> Result<(), ()> {
 
 #[tauri::command]
 pub async fn fetch_imap_folders(keychain_entry: KeychainEntry) -> Result<WebFolders, ()> {
-    let mut imap_session = open_imap_session(keychain_entry,"").await;
+    let mut imap_session = open_imap_session(keychain_entry, "").await;
 
     let folders = match imap_session.list(None, Some("*")) {
         Ok(l) => l,
@@ -35,10 +35,7 @@ pub async fn fetch_imap_folders(keychain_entry: KeychainEntry) -> Result<WebFold
         }
     };
 
-    let names: Vec<String> = folders
-        .into_iter()
-        .map(|f| f.name().to_string())
-        .collect();
+    let names: Vec<String> = folders.into_iter().map(|f| f.name().to_string()).collect();
 
     let delimiter = match folders.first() {
         None => panic!("No folders found"),
@@ -47,7 +44,7 @@ pub async fn fetch_imap_folders(keychain_entry: KeychainEntry) -> Result<WebFold
 
     Ok(WebFolders {
         folders: build_folders_recursively(&names, &delimiter),
-        delimiter
+        delimiter,
     })
 }
 
@@ -62,7 +59,13 @@ fn build_folders_recursively(names: &Vec<String>, delimiter: &str) -> Vec<Folder
     folders
 }
 
-fn add_folder(folders: &mut Vec<Folder>, parts: &[&str], parent: Option<String>, parent_path: String, delimiter: &str) {
+fn add_folder(
+    folders: &mut Vec<Folder>,
+    parts: &[&str],
+    parent: Option<String>,
+    parent_path: String,
+    delimiter: &str,
+) {
     if parts.is_empty() {
         return;
     }
@@ -76,7 +79,13 @@ fn add_folder(folders: &mut Vec<Folder>, parts: &[&str], parent: Option<String>,
     };
 
     if let Some(existing_folder) = folders.iter_mut().find(|f| f.folder_name == folder_name) {
-        add_folder(&mut existing_folder.children, remaining_parts, Some(folder_name.clone()), full_path.clone(), delimiter);
+        add_folder(
+            &mut existing_folder.children,
+            remaining_parts,
+            Some(folder_name.clone()),
+            full_path.clone(),
+            delimiter,
+        );
     } else {
         let mut new_folder = Folder {
             folder_name: folder_name.clone(),
@@ -84,7 +93,13 @@ fn add_folder(folders: &mut Vec<Folder>, parts: &[&str], parent: Option<String>,
             children: Box::new(vec![]),
             parent: parent.clone(),
         };
-        add_folder(&mut new_folder.children, remaining_parts, Some(folder_name), full_path, delimiter);
+        add_folder(
+            &mut new_folder.children,
+            remaining_parts,
+            Some(folder_name),
+            full_path,
+            delimiter,
+        );
         folders.push(new_folder);
     }
 }

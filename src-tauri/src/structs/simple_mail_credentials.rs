@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
     Hash,
     PartialEq,
     Clone,
-    AsChangeset
+    AsChangeset,
 )]
 #[diesel(table_name = crate::database::schema::simple_mail_credentials)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]

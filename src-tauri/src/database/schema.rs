@@ -9,21 +9,31 @@ diesel::table! {
 
 diesel::table! {
     attachment (id) {
-        id -> Integer,
+        id -> Nullable<Integer>,
         filename -> Text,
         content_id -> Text,
         content -> Binary,
         encoding -> Text,
-        email_id -> Integer,
+        email_id -> Nullable<Integer>,
+    }
+}
+
+diesel::table! {
+    body (id) {
+        id -> Nullable<Integer>,
+        content -> Text,
+        is_html -> Bool,
+        email_id -> Nullable<Integer>,
     }
 }
 
 diesel::table! {
     email (id) {
-        id -> Integer,
+        id -> Nullable<Integer>,
         email_id -> Text,
         delivered_at -> Timestamp,
         subject -> Text,
+        folder_path -> Text,
     }
 }
 
@@ -36,17 +46,17 @@ diesel::table! {
 
 diesel::table! {
     recipient (id) {
-        id -> Integer,
+        id -> Nullable<Integer>,
         address -> Text,
-        email_id -> Integer,
+        email_id -> Nullable<Integer>,
     }
 }
 
 diesel::table! {
     sender (id) {
-        id -> Integer,
+        id -> Nullable<Integer>,
         address -> Text,
-        email_id -> Integer,
+        email_id -> Nullable<Integer>,
     }
 }
 
@@ -62,12 +72,14 @@ diesel::table! {
 }
 
 diesel::joinable!(attachment -> email (email_id));
+diesel::joinable!(body -> email (email_id));
 diesel::joinable!(recipient -> email (email_id));
 diesel::joinable!(sender -> email (email_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     access_token,
     attachment,
+    body,
     email,
     keychain_entry,
     recipient,

@@ -1,4 +1,4 @@
-import { invoke, InvokeArgs } from '@tauri-apps/api/tauri';
+import { invoke, InvokeArgs } from '@tauri-apps/api/core';
 import { useSetRecoilState } from 'recoil';
 import { runningRequestsState } from '../state/atoms.ts';
 

@@ -1,6 +1,6 @@
 import './EmailAttachmentComponent.scss';
 import { EmailAttachment } from '../../../interfaces/Email.ts';
-import { BaseDirectory, writeBinaryFile } from '@tauri-apps/api/fs';
+import { BaseDirectory, writeFile } from '@tauri-apps/plugin-fs';
 
 interface EmailAttachmentProps {
   attachments: Array<EmailAttachment>;
@@ -9,7 +9,7 @@ interface EmailAttachmentProps {
 export default function EmailAttachmentComponent({ attachments }: EmailAttachmentProps) {
   async function createDownloadableAttachments(attachment: EmailAttachment) {
     const contents = new Uint8Array(attachment.content);
-    await writeBinaryFile({ path: attachment.filename, contents }, { dir: BaseDirectory.Download });
+    await writeFile(attachment.filename, contents, { baseDir: BaseDirectory.Download });
   }
 
   function filename(filename: string) {

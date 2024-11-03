@@ -12,7 +12,7 @@ use crate::structs::imap_email::WebEmailPreview;
 use crate::structs::keychain_entry::KeychainEntry;
 use chrono::NaiveDateTime;
 use log::error;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 #[tauri::command]
 pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folder: String) {

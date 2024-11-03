@@ -103,16 +103,22 @@ fn get_deliver_date(mail: &Message) -> NaiveDateTime {
                 };
                 return date_time.naive_utc();
             } else if header.name().eq("Received") {
-                let option_recieved = header.value.as_received().unwrap().date;
-                if option_recieved.is_some() {
-                    let recieved = option_recieved.unwrap();
-
-                    let date_time = match DateTime::from_timestamp(recieved.to_timestamp(), 0) {
+                let option_received = header.value.as_received().unwrap().date;
+                if option_received.is_some() {
+                    let received = option_received.unwrap();
+                    let date_time = match DateTime::from_timestamp(received.to_timestamp(), 0) {
                         None => panic!("Failed to parse date"),
                         Some(d) => d
                     };
                     return date_time.naive_utc();
                 }
+            } else if header.name().eq("Date") {
+                let date = header.value.as_datetime().unwrap();
+                let date_time = match DateTime::from_timestamp(date.to_timestamp(), 0) {
+                    None => panic!("Failed to parse date"),
+                    Some(d) => d
+                };
+                return date_time.naive_utc();
             }
         }
     }
@@ -161,6 +167,11 @@ pub fn parse_message(message: &Fetch, folder_path: String) -> WebEmailPreview {
             .flat_map(|a| a.first())
             .map(|a| a.address.clone());
 
+        let subject = match message.subject() {
+            None => "".to_string(),
+            Some(s) => s.to_string()
+        };
+
         let mut mail = WebEmail {
             id: None,
             email_id: message_id.clone(),
@@ -171,7 +182,7 @@ pub fn parse_message(message: &Fetch, folder_path: String) -> WebEmailPreview {
             to: to_addresses
                 .map(|a| a.unwrap().to_string())
                 .collect::<Vec<String>>(),
-            subject: message.subject().unwrap().to_string(),
+            subject,
             folder_path,
             html_bodies,
             text_bodies,

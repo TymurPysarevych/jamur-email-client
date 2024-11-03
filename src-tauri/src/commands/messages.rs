@@ -5,19 +5,20 @@ extern crate native_tls;
 
 use crate::commands::google::oauth::renew_token;
 use crate::commands::helper::helper_messages::*;
+use crate::database::email_repository;
 use crate::database::keychain_entry_repository::fetch_keychain_entry_google;
+use crate::database::schema::email::folder_path;
 use crate::structs::google::email::GEmail;
 use crate::structs::imap_email::{WebEmail, WebEmailPreview};
 use crate::structs::keychain_entry::KeychainEntry;
-use log::{error, info};
-use std::time::Duration;
 use chrono::NaiveDateTime;
-use diesel::{QueryResult, RunQueryDsl};
 use diesel::result::Error;
+use diesel::{QueryResult, RunQueryDsl};
 use imap::types::{Fetch, ZeroCopy};
+use log::{error, info};
+use std::convert::Infallible;
+use std::time::Duration;
 use tauri::{AppHandle, Manager};
-use crate::database::email_repository;
-use crate::database::schema::email::folder_path;
 
 #[tauri::command]
 pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folder: String) {
@@ -35,14 +36,13 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folde
         let mut imap_session = open_imap_session(keychain_entry, &*folder).await;
         let messages_stream = imap_session.fetch("1:*", "RFC822").ok();
         imap_session.logout().ok();
-        let messages = match messages_stream {
-            None => panic!("No messages"),
-            Some(m) => m,
-        };
-        web_emails = messages
-            .iter()
-            .map(|message| parse_message(message, folder.clone()))
-            .collect::<Vec<WebEmailPreview>>();
+        if messages_stream.is_some() {
+            let messages = messages_stream.unwrap();
+            web_emails = messages
+                .iter()
+                .map(|message| parse_message(message, folder.clone()))
+                .collect::<Vec<WebEmailPreview>>();
+        }
     } else {
         let last_email = db_emails.first();
 

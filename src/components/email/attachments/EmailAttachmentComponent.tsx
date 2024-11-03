@@ -1,6 +1,6 @@
 import './EmailAttachmentComponent.scss';
 import { EmailAttachment } from '../../../interfaces/Email.ts';
-import { BaseDirectory, writeBinaryFile } from '@tauri-apps/api/fs';
+import { BaseDirectory, writeBinaryFile } from '@tauri-apps/plugin-fs';
 
 interface EmailAttachmentProps {
   attachments: Array<EmailAttachment>;

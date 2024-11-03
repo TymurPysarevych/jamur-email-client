@@ -1,16 +1,16 @@
 import './style.scss';
-import { imapEmailsState, keychainEntriesState } from '../../state/atoms.ts';
+import { emailsPreviewState, keychainEntriesState } from '../../state/atoms.ts';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
 import { Folder, WebEmailPreview, WebFolders } from '../../interfaces/Email.ts';
 import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
-import { KEYCHAIN_KEY_IMAP } from '../../interfaces/KeychainEntry.ts';
+import { KEYCHAIN_KEY_GMAIL, KEYCHAIN_KEY_IMAP } from '../../interfaces/KeychainEntry.ts';
 import { useEffect, useState } from 'react';
 import { SimpleTreeView, TreeItem } from '@mui/x-tree-view';
 import { listen } from '@tauri-apps/api/event';
 
 export default function Menu() {
   const keychainEntries = useRecoilValue(keychainEntriesState);
-  const setImapEmails = useSetRecoilState(imapEmailsState);
+  const setEmailsPreview = useSetRecoilState(emailsPreviewState);
   const [fetchImapMessages] = useTauriInvoke();
   // const [fetchGmailMessages] = useTauriInvoke<Array<GEmail>>();
   const [fetchImapFolders] = useTauriInvoke<WebFolders>();
@@ -36,14 +36,21 @@ export default function Menu() {
       keychainEntries
         .filter((e) => e.key.startsWith(KEYCHAIN_KEY_IMAP))
         .forEach(async (entry) => {
-          setImapEmails([]);
+          setEmailsPreview([]);
           await listen<Array<WebEmailPreview>>('new_emails', (event) => {
-            setImapEmails(event.payload);
+            setEmailsPreview(event.payload);
           });
-          fetchImapMessages('fetch_messages', {
-            keychainEntry: entry,
-            folder: selectedFolder
-          }).then(() => {});
+          if (entry.key.startsWith(KEYCHAIN_KEY_IMAP)) {
+            fetchImapMessages('fetch_messages', {
+              keychainEntry: entry,
+              folder: selectedFolder
+            }).then(() => {});
+          } else if (entry.key.startsWith(KEYCHAIN_KEY_GMAIL)) {
+            // fetchGmailMessages('fetch_gmail_messages', {
+            //   keychainEntry: entry,
+            //   folder: selectedFolder
+            // }).then(() => {});
+          }
         });
     }
   }, [selectedFolder]);

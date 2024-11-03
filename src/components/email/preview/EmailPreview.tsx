@@ -1,9 +1,9 @@
 import './style.scss';
 import { useRecoilValue } from 'recoil';
-import { imapEmailsState } from '../../../state/atoms.ts';
+import { emailsPreviewState } from '../../../state/atoms.ts';
 
 export default function EmailPreview() {
-  const emails = useRecoilValue(imapEmailsState);
+  const emails = useRecoilValue(emailsPreviewState);
 
   return (
     <div className="email-preview-container">

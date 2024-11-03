@@ -7,27 +7,24 @@ use crate::commands::google::oauth::renew_token;
 use crate::commands::helper::helper_messages::*;
 use crate::database::email_repository;
 use crate::database::keychain_entry_repository::fetch_keychain_entry_google;
-use crate::database::schema::email::folder_path;
 use crate::structs::google::email::GEmail;
-use crate::structs::imap_email::{WebEmail, WebEmailPreview};
+use crate::structs::imap_email::WebEmailPreview;
 use crate::structs::keychain_entry::KeychainEntry;
 use chrono::NaiveDateTime;
-use diesel::result::Error;
-use diesel::{QueryResult, RunQueryDsl};
-use imap::types::{Fetch, ZeroCopy};
-use log::{error, info};
-use std::convert::Infallible;
-use std::time::Duration;
-use tauri::{AppHandle, Manager};
+use log::error;
+use tauri::{AppHandle, Emitter, Manager};
 
 #[tauri::command]
 pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folder: String) {
     let mut web_emails: Vec<WebEmailPreview> = vec![];
 
-    let mut db_emails = match email_repository::fetch_all_by_folder_path(folder.clone()) {
+    let db_emails = match email_repository::fetch_all_by_folder_path(folder.clone()) {
         Ok(m) => m,
         Err(e) => {
-            error!("Error while fetching all emails in folder: {} \n {:?}", folder, e);
+            error!(
+                "Error while fetching all emails in folder: {} \n {:?}",
+                folder, e
+            );
             vec![]
         }
     };
@@ -47,7 +44,13 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folde
         let last_email = db_emails.first();
 
         if last_email.is_some() {
-            web_emails = fetch_by_query(keychain_entry, last_email.unwrap().delivered_at.clone(), folder).await.unwrap();
+            web_emails = fetch_by_query(
+                keychain_entry,
+                last_email.unwrap().delivered_at.clone(),
+                folder,
+            )
+            .await
+            .unwrap();
         }
     }
 
@@ -55,7 +58,8 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folde
 
     web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
 
-    app.emit_all("new_emails", web_emails).expect("Could not emit email");
+    app.emit("new_emails", web_emails)
+        .expect("Could not emit email");
 }
 
 #[tauri::command]
@@ -73,7 +77,10 @@ pub async fn fetch_by_query(
     let mut web_emails: Vec<WebEmailPreview> = vec![];
 
     for uid in uids {
-        let messages_stream = imap_session.uid_fetch(format!("{}", uid), "BODY[]").ok().unwrap();
+        let messages_stream = imap_session
+            .uid_fetch(format!("{}", uid), "BODY[]")
+            .ok()
+            .unwrap();
         let message = messages_stream.first();
         if message.is_some() {
             web_emails.push(parse_message(message.unwrap(), folder.clone()));

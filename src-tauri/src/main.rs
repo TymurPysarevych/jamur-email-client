@@ -18,6 +18,8 @@ fn main() {
     let state = create_auth_state();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_fs::init())
         .manage(state)
         .setup(|_app| {
             info!("⚠️Checking for database migrations ...");

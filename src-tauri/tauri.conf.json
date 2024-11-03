@@ -2,36 +2,22 @@
   "build": {
     "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build",
-    "devPath": "http://localhost:1420",
-    "distDir": "../dist"
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420"
   },
-  "package": {
-    "productName": "jamur-email-client",
-    "version": "0.0.4"
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
   },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "window": {
-        "all": true
-      },
-      "shell": {
-        "all": false,
-        "open": true
-      },
-      "fs": {
-        "all": true,
-        "readFile": true,
-        "writeFile": true,
-        "readDir": true,
-        "copyFile": false,
-        "createDir": true,
-        "removeDir": false,
-        "removeFile": false,
-        "renameFile": false,
-        "exists": true,
-        "scope": ["$DOWNLOAD/*"]
-      }
+  "productName": "jamur-email-client",
+  "mainBinaryName": "jamur-email-client",
+  "version": "0.0.4",
+  "identifier": "com.devplix.jamur",
+  "plugins": {},
+  "app": {
+    "security": {
+      "csp": null
     },
     "windows": [
       {
@@ -41,15 +27,6 @@
         "transparent": true
       }
     ],
-    "macOSPrivateApi": true,
-    "security": {
-      "csp": null
-    },
-    "bundle": {
-      "active": true,
-      "targets": "all",
-      "identifier": "com.devplix.jamur",
-      "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
-    }
+    "macOSPrivateApi": true
   }
 }

@@ -1,12 +1,43 @@
 use crate::database::db_init::establish_connection;
 use crate::database::schema::email::dsl::email as dsl_email;
 use crate::database::schema::{attachment, body, email as schema_email, recipient, sender};
-use crate::structs::imap_email::{Attachment, Body, Email, Recipient, Sender, WebEmail, WebEmailPreview};
+use crate::structs::imap_email::{
+    Attachment, Body, Email, Recipient, Sender, WebEmail, WebEmailPreview,
+};
 use chrono::NaiveDateTime;
-use diesel::associations::HasTable;
 use diesel::result::Error;
-use diesel::{BelongingToDsl, Connection, ExpressionMethods, QueryDsl, QueryResult, RunQueryDsl, SelectableHelper};
+use diesel::{BelongingToDsl, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 use log::error;
+
+pub fn count_all_by_folder_path(folder_path: String) -> i64 {
+    let connection = &mut establish_connection();
+    let query_result = dsl_email
+        .filter(schema_email::folder_path.eq(folder_path))
+        .count()
+        .get_result(connection);
+    match query_result {
+        Ok(count) => count,
+        Err(e) => {
+            panic!("Error counting keychain entries: {:?}", e);
+        }
+    }
+}
+
+pub fn fetch_latest_email_by_folder_path(folder_path: String) -> Option<Email> {
+    let connection = &mut establish_connection();
+    let latest_email = dsl_email
+        .filter(schema_email::folder_path.eq(folder_path))
+        .select(Email::as_select())
+        .order(schema_email::delivered_at.desc())
+        .first(connection);
+    match latest_email {
+        Ok(e) => Some(e),
+        Err(e) => {
+            error!("Error fetching latest email: {:?}", e);
+            None
+        }
+    }
+}
 
 pub fn fetch_all() -> Result<Vec<WebEmail>, Error> {
     let connection = &mut establish_connection();
@@ -41,8 +72,16 @@ pub fn fetch_all() -> Result<Vec<WebEmail>, Error> {
             attachments: attachments.iter().map(|a| a.clone()).collect(),
             to: recipients.iter().map(|r| r.address.clone()).collect(),
             from: senders.iter().map(|s| s.address.clone()).collect(),
-            html_bodies: bodies.iter().filter(|b| b.is_html).map(|b| b.content.clone()).collect(),
-            text_bodies: bodies.iter().filter(|b| !b.is_html).map(|b| b.content.clone()).collect(),
+            html_bodies: bodies
+                .iter()
+                .filter(|b| b.is_html)
+                .map(|b| b.content.clone())
+                .collect(),
+            text_bodies: bodies
+                .iter()
+                .filter(|b| !b.is_html)
+                .map(|b| b.content.clone())
+                .collect(),
             email_id: email.email_id,
         });
     }
@@ -58,10 +97,11 @@ pub fn fetch_by_id_preview(id: i32) -> WebEmailPreview {
     let all_emails = dsl_email
         .filter(schema_email::id.eq(id))
         .select(Email::as_select())
-        .load::<Email>(connection).unwrap_or_else(|e| {
-        error!("Error while fetching email: {:?}", e);
-        vec![]
-    });
+        .load::<Email>(connection)
+        .unwrap_or_else(|e| {
+            error!("Error while fetching email: {:?}", e);
+            vec![]
+        });
 
     let email = if all_emails.len() == 0 {
         return panic!("No email with ID: {}", id);
@@ -92,31 +132,35 @@ pub fn fetch_by_id(id: i32) -> Result<WebEmail, Error> {
 
     let attachments = Attachment::belonging_to(email)
         .select(Attachment::as_select())
-        .load::<Attachment>(connection).unwrap_or_else(|e| {
-        error!("Error while fetching attachments: {:?}", e);
-        vec![]
-    });
+        .load::<Attachment>(connection)
+        .unwrap_or_else(|e| {
+            error!("Error while fetching attachments: {:?}", e);
+            vec![]
+        });
 
     let recipients = Recipient::belonging_to(email)
         .select(Recipient::as_select())
-        .load::<Recipient>(connection).unwrap_or_else(|e| {
-        error!("Error while fetching recipients: {:?}", e);
-        vec![]
-    });
+        .load::<Recipient>(connection)
+        .unwrap_or_else(|e| {
+            error!("Error while fetching recipients: {:?}", e);
+            vec![]
+        });
 
     let senders = Sender::belonging_to(email)
         .select(Sender::as_select())
-        .load::<Sender>(connection).unwrap_or_else(|e| {
-        error!("Error while fetching senders: {:?}", e);
-        vec![]
-    });
+        .load::<Sender>(connection)
+        .unwrap_or_else(|e| {
+            error!("Error while fetching senders: {:?}", e);
+            vec![]
+        });
 
     let bodies = Body::belonging_to(email)
         .select(Body::as_select())
-        .load::<Body>(connection).unwrap_or_else(|e| {
-        error!("Error while fetching bodies: {:?}", e);
-        vec![]
-    });
+        .load::<Body>(connection)
+        .unwrap_or_else(|e| {
+            error!("Error while fetching bodies: {:?}", e);
+            vec![]
+        });
 
     Ok(WebEmail {
         id: email.id.clone(),
@@ -126,8 +170,16 @@ pub fn fetch_by_id(id: i32) -> Result<WebEmail, Error> {
         attachments: attachments.iter().map(|a| a.clone()).collect(),
         to: recipients.iter().map(|r| r.address.clone()).collect(),
         from: senders.iter().map(|s| s.address.clone()).collect(),
-        html_bodies: bodies.iter().filter(|b| b.is_html).map(|b| b.content.clone()).collect(),
-        text_bodies: bodies.iter().filter(|b| !b.is_html).map(|b| b.content.clone()).collect(),
+        html_bodies: bodies
+            .iter()
+            .filter(|b| b.is_html)
+            .map(|b| b.content.clone())
+            .collect(),
+        text_bodies: bodies
+            .iter()
+            .filter(|b| !b.is_html)
+            .map(|b| b.content.clone())
+            .collect(),
         email_id: email.email_id.clone(),
     })
 }
@@ -243,9 +295,7 @@ pub fn save_email(db_email: &Email) {
 
 pub fn save_web_email(web_email: &mut WebEmail) {
     match save_full_email(web_email) {
-        Ok(_) => {
-            ()
-        }
+        Ok(_) => (),
         Err(e) => {
             panic!("Error saving email: {:?}", e);
         }
@@ -282,9 +332,7 @@ pub fn email_already_exists(id: &String, delivered_at: &NaiveDateTime) -> Option
         .first(connection);
     match email {
         Ok(e) => Some(e),
-        Err(_e) => {
-            None
-        }
+        Err(_e) => None,
     }
 }
 
@@ -293,30 +341,33 @@ pub fn map_email_to_web_email_preview(email: Email) -> WebEmailPreview {
 
     let recipients = Recipient::belonging_to(&email)
         .select(Recipient::as_select())
-        .load::<Recipient>(connection).unwrap_or_else(|e| {
-        error!("Error while fetching recipients: {:?}", e);
-        vec![]
-    });
+        .load::<Recipient>(connection)
+        .unwrap_or_else(|e| {
+            error!("Error while fetching recipients: {:?}", e);
+            vec![]
+        });
 
     let senders = Sender::belonging_to(&email)
         .select(Sender::as_select())
-        .load::<Sender>(connection).unwrap_or_else(|e| {
-        error!("Error while fetching senders: {:?}", e);
-        vec![]
-    });
+        .load::<Sender>(connection)
+        .unwrap_or_else(|e| {
+            error!("Error while fetching senders: {:?}", e);
+            vec![]
+        });
 
     let body = Body::belonging_to(&email)
         .select(Body::as_select())
         .filter(body::is_html.eq(false))
-        .first::<Body>(connection).unwrap_or_else(|e| {
-        error!("Error while fetching body: {:?}", e);
-        Body {
-            id: None,
-            email_id: None,
-            content: "".to_string(),
-            is_html: false,
-        }
-    });
+        .first::<Body>(connection)
+        .unwrap_or_else(|e| {
+            error!("Error while fetching body: {:?}", e);
+            Body {
+                id: None,
+                email_id: None,
+                content: "".to_string(),
+                is_html: false,
+            }
+        });
 
     let preview_body = slice_text(&body.content, 150);
 
@@ -333,9 +384,12 @@ pub fn map_email_to_web_email_preview(email: Email) -> WebEmailPreview {
 }
 
 fn slice_text(text: &String, length: usize) -> String {
-    if text.len() > length {
-        let text_vec = text.chars().collect::<Vec<_>>();
-        format!("{}...", text_vec[..length].iter().cloned().collect::<String>())
+    let text_vec = text.chars().collect::<Vec<_>>();
+    if text_vec.len() > length {
+        format!(
+            "{}...",
+            text_vec[..length].iter().cloned().collect::<String>()
+        )
     } else {
         text.clone()
     }

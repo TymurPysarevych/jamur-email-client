@@ -12,7 +12,7 @@ export const keychainEntriesState = atom<Array<KeychainEntry>>({
   default: []
 });
 
-export const imapEmailsState = atom<Array<WebEmailPreview>>({
-  key: 'imapEmailsState',
+export const emailsPreviewState = atom<Array<WebEmailPreview>>({
+  key: 'emailsPreviewState',
   default: []
 });

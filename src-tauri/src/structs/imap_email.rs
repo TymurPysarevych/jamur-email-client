@@ -19,15 +19,7 @@ pub struct Folder {
 }
 
 #[derive(
-    Queryable,
-    Insertable,
-    Identifiable,
-    Selectable,
-    Deserialize,
-    Serialize,
-    Debug,
-    Clone,
-    PartialEq
+    Queryable, Insertable, Identifiable, Selectable, Deserialize, Serialize, Debug, Clone, PartialEq,
 )]
 #[diesel(table_name = crate::database::schema::email)]
 #[diesel(check_for_backend(diesel::sqlite::Sqlite))]
@@ -61,7 +53,7 @@ impl From<WebEmail> for Email {
     Serialize,
     Debug,
     Clone,
-    PartialEq
+    PartialEq,
 )]
 #[diesel(table_name = crate::database::schema::body)]
 #[diesel(belongs_to(Email, foreign_key = email_id))]
@@ -85,7 +77,7 @@ pub struct Body {
     Eq,
     Deserialize,
     Serialize,
-    Debug
+    Debug,
 )]
 #[diesel(table_name = crate::database::schema::attachment)]
 #[diesel(belongs_to(Email, foreign_key = email_id))]
@@ -118,7 +110,6 @@ pub struct Sender {
     pub address: String,
     pub email_id: Option<i32>,
 }
-
 
 /**
 *

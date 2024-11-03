@@ -4,23 +4,21 @@ use crate::database::keychain_entry_repository::KEYCHAIN_KEY_IMAP_PASSWORD;
 use crate::database::simple_mail_credentials_repository::fetch_by_keychain_id;
 use crate::structs::access_token::AccessToken;
 use crate::structs::google::email::{EmailLightResponse, GEmail};
-use crate::structs::imap_email::{Attachment, Email, WebEmail, WebEmailPreview};
+use crate::structs::imap_email::{Attachment, WebEmail, WebEmailPreview};
 use crate::structs::keychain_entry::KeychainEntry;
 use base64::engine::general_purpose;
 use base64::engine::general_purpose::URL_SAFE;
 use base64::Engine;
-use chrono::{DateTime, NaiveDate, NaiveDateTime, ParseResult, Utc};
-use diesel::result::Error;
+use chrono::{DateTime, NaiveDateTime};
 use encoding_rs::UTF_8;
 use imap::types::Fetch;
 use imap::{Client, Session};
 use log::{error, warn};
-use mail_parser::{BodyPartIterator, Header, Message, MessageParser, MimeHeaders};
+use mail_parser::{BodyPartIterator, Message, MessageParser, MimeHeaders};
 use native_tls::{TlsConnector, TlsStream};
 use regex::Regex;
 use std::collections::HashSet;
 use std::net::TcpStream;
-use std::time::{Duration, UNIX_EPOCH};
 
 async fn login_imap_session(
     host: &str,
@@ -66,15 +64,16 @@ async fn login_imap_session(
             .select("INBOX")
             .expect("Failed to select INBOX");
     } else {
-        imap_session
-            .select(folder)
-            .expect("Failed to select INBOX");
+        imap_session.select(folder).expect("Failed to select INBOX");
     }
 
     imap_session
 }
 
-pub async fn open_imap_session(keychain_entry: KeychainEntry, folder: &str) -> Session<TlsStream<TcpStream>> {
+pub async fn open_imap_session(
+    keychain_entry: KeychainEntry,
+    folder: &str,
+) -> Session<TlsStream<TcpStream>> {
     let simple_mail_creds = fetch_by_keychain_id(&keychain_entry.id);
     let login = &simple_mail_creds.username;
     let password = &fetch_keyring_entry(KEYCHAIN_KEY_IMAP_PASSWORD, &keychain_entry.id);
@@ -99,7 +98,7 @@ fn get_deliver_date(mail: &Message) -> NaiveDateTime {
                 let timestamp = str_timestamp.parse::<i64>().unwrap();
                 let date_time = match DateTime::from_timestamp(timestamp, 0) {
                     None => panic!("Failed to parse date"),
-                    Some(d) => d
+                    Some(d) => d,
                 };
                 return date_time.naive_utc();
             } else if header.name().eq("Received") {
@@ -108,7 +107,7 @@ fn get_deliver_date(mail: &Message) -> NaiveDateTime {
                     let received = option_received.unwrap();
                     let date_time = match DateTime::from_timestamp(received.to_timestamp(), 0) {
                         None => panic!("Failed to parse date"),
-                        Some(d) => d
+                        Some(d) => d,
                     };
                     return date_time.naive_utc();
                 }
@@ -116,7 +115,7 @@ fn get_deliver_date(mail: &Message) -> NaiveDateTime {
                 let date = header.value.as_datetime().unwrap();
                 let date_time = match DateTime::from_timestamp(date.to_timestamp(), 0) {
                     None => panic!("Failed to parse date"),
-                    Some(d) => d
+                    Some(d) => d,
                 };
                 return date_time.naive_utc();
             }
@@ -130,10 +129,9 @@ pub fn parse_message(message: &Fetch, folder_path: String) -> WebEmailPreview {
     let body_raw = message.body().expect("message did not have a body!");
     let message = decode_message(body_raw);
 
-
     let message_id = match message.message_id() {
         None => "".to_string(),
-        Some(s) => s.to_string()
+        Some(s) => s.to_string(),
     };
     let delivered_at = get_deliver_date(&message);
     let is_new_email = email_repository::email_already_exists(&message_id, &delivered_at);
@@ -169,7 +167,7 @@ pub fn parse_message(message: &Fetch, folder_path: String) -> WebEmailPreview {
 
         let subject = match message.subject() {
             None => "".to_string(),
-            Some(s) => s.to_string()
+            Some(s) => s.to_string(),
         };
 
         let mut mail = WebEmail {
@@ -202,10 +200,7 @@ pub fn parse_message(message: &Fetch, folder_path: String) -> WebEmailPreview {
     }
 }
 
-fn replace_images(
-    mut body: String,
-    attachments: &mut Vec<Attachment>,
-) -> String {
+fn replace_images(mut body: String, attachments: &mut Vec<Attachment>) -> String {
     let regex = match Regex::new(r#"src="cid:[^"]*""#) {
         Ok(r) => r,
         Err(e) => {
@@ -343,10 +338,7 @@ fn decode_message(body_raw: &[u8]) -> Message {
     mail.into_owned()
 }
 
-fn fetch_html_bodies(
-    iterator: BodyPartIterator,
-    attachments: &mut Vec<Attachment>,
-) -> Vec<String> {
+fn fetch_html_bodies(iterator: BodyPartIterator, attachments: &mut Vec<Attachment>) -> Vec<String> {
     let mut bodies: Vec<String> = vec![];
 
     iterator.for_each(|b| {

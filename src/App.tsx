@@ -25,17 +25,10 @@ export default function App() {
         setLoadingCredsExistState(false);
       });
 
-    listen<Snacks>('show_snacks', ({ payload }) => {
+    listen<Snacks>('show_snack', ({ payload }) => {
+      console.log('show_snack event received', payload);
       setSnacks(payload);
-    }).catch((e) => {
-      setSnacks({
-        message: `Error: ${e.message}`,
-        open: true,
-        vertical: 'top',
-        horizontal: 'center',
-        severity: 'error'
-      });
-    });
+    }).finally(() => {});
   }, []);
 
   if (loadingCredsExist) {

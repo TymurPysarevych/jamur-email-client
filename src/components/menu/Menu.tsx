@@ -67,6 +67,7 @@ export default function Menu() {
           <TreeItem
             onClick={() => setSelectedFolder(folder.fullPath)}
             itemId={folder.fullPath}
+            key={folder.fullPath}
             label={folder.folderName}
           >
             {folder.children.map((child) => buildFolder(child))}
@@ -75,7 +76,7 @@ export default function Menu() {
       };
       return (
         <SimpleTreeView>
-          <TreeItem itemId={parent} label={parent}>
+          <TreeItem itemId={parent} label={parent} key={parent}>
             {webFolders.folders.map((folder) => buildFolder(folder))}
           </TreeItem>
         </SimpleTreeView>

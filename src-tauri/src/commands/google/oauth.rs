@@ -19,11 +19,14 @@ use oauth2::{
 };
 use std::net::{SocketAddr, TcpListener};
 use std::sync::Arc;
-use tauri::Manager;
+use log::error;
+use tauri::{AppHandle, Manager};
+use crate::snacks::snacks::send_snacks;
+use crate::structs::snack::{SnackHorizontal, SnackSeverity, SnackVertical};
 
 #[tauri::command]
-pub async fn authenticate_google(handle: tauri::AppHandle) {
-    let auth = handle.state::<AuthState>();
+pub async fn authenticate_google(app: AppHandle) {
+    let auth = app.state::<AuthState>();
     let scope_value = "https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email openid https://www.googleapis.com/auth/gmail.compose".to_string();
     let (auth_url, _) = auth
         .client
@@ -35,18 +38,18 @@ pub async fn authenticate_google(handle: tauri::AppHandle) {
         .set_pkce_challenge(auth.pkce.0.clone())
         .url();
 
-    tauri::async_runtime::spawn(async move { run_server(handle).await });
+    tauri::async_runtime::spawn(async move { run_server(app).await });
     open::that(auth_url.to_string()).unwrap();
 }
 
 async fn authorize(
-    handle: Extension<tauri::AppHandle>,
+    app: Extension<AppHandle>,
     query: Query<CallbackQuery>,
 ) -> impl IntoResponse {
-    let auth = handle.state::<AuthState>();
+    let auth = app.state::<AuthState>();
 
     if query.state.secret() != auth.csrf_token.secret() {
-        println!("Suspected Man in the Middle attack!");
+        error!("Suspected Man in the Middle attack!");
         return "authorized".to_string(); // never let them know your next move
     }
 
@@ -65,12 +68,19 @@ async fn authorize(
     let refresh_token = match token.refresh_token() {
         Some(token) => token.secret(),
         None => {
+            send_snacks(
+                "Error getting refresh token from token response".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
             panic!("Error getting refresh token from token response");
         }
     };
 
     // store the token in the keyring
-    save_keyring_entry(KEYCHAIN_KEY_GMAIL_REFRESH_TOKEN, &email, &refresh_token);
+    save_keyring_entry(KEYCHAIN_KEY_GMAIL_REFRESH_TOKEN, &email, &refresh_token, &app);
 
     save_keychain_entry_google(&KeychainEntry {
         key: KEYCHAIN_KEY_GMAIL_REFRESH_TOKEN.to_string(),
@@ -185,9 +195,9 @@ pub fn create_auth_state() -> AuthState {
     state
 }
 
-pub async fn renew_token(handle: &tauri::AppHandle, user: &str) -> AccessToken {
-    let refresh_token = fetch_keyring_entry(KEYCHAIN_KEY_GMAIL_REFRESH_TOKEN, user);
-    let auth_state = handle.state::<AuthState>();
+pub async fn renew_token(app: &AppHandle, user: &str) -> AccessToken {
+    let refresh_token = fetch_keyring_entry(KEYCHAIN_KEY_GMAIL_REFRESH_TOKEN, user, &app);
+    let auth_state = app.state::<AuthState>();
     let token = auth_state
         .client
         .exchange_refresh_token(&RefreshToken::new(refresh_token))

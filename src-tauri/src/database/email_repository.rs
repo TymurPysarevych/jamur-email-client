@@ -8,8 +8,11 @@ use chrono::NaiveDateTime;
 use diesel::result::Error;
 use diesel::{BelongingToDsl, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 use log::error;
+use tauri::AppHandle;
+use crate::snacks::snacks::send_snacks;
+use crate::structs::snack::{SnackHorizontal, SnackSeverity, SnackVertical};
 
-pub fn count_all_by_folder_path(folder_path: String) -> i64 {
+pub fn count_all_by_folder_path(folder_path: String, app: &AppHandle) -> i64 {
     let connection = &mut establish_connection();
     let query_result = dsl_email
         .filter(schema_email::folder_path.eq(folder_path))
@@ -18,6 +21,13 @@ pub fn count_all_by_folder_path(folder_path: String) -> i64 {
     match query_result {
         Ok(count) => count,
         Err(e) => {
+            send_snacks(
+                "Error counting keychain entries".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
             panic!("Error counting keychain entries: {:?}", e);
         }
     }
@@ -32,8 +42,7 @@ pub fn fetch_latest_email_by_folder_path(folder_path: String) -> Option<Email> {
         .first(connection);
     match latest_email {
         Ok(e) => Some(e),
-        Err(e) => {
-            error!("Error fetching latest email: {:?}", e);
+        Err(_e) => {
             None
         }
     }
@@ -114,7 +123,7 @@ pub fn fetch_by_id_preview(id: i32) -> WebEmailPreview {
     map_email_to_web_email_preview(email.clone())
 }
 
-pub fn fetch_by_id(id: i32) -> Result<WebEmail, Error> {
+pub fn fetch_by_id(id: i32, app: &AppHandle) -> Result<WebEmail, Error> {
     let connection = &mut establish_connection();
 
     let all_emails = dsl_email
@@ -123,9 +132,23 @@ pub fn fetch_by_id(id: i32) -> Result<WebEmail, Error> {
         .load::<Email>(connection)?;
 
     let email = if all_emails.len() == 0 {
-        return panic!("No email with ID: {}", id);
+        send_snacks(
+            "No email found".to_string(),
+            SnackSeverity::Error,
+            SnackVertical::Top,
+            SnackHorizontal::Right,
+            &app,
+        );
+        return Err(Error::NotFound);
     } else if all_emails.len() > 1 {
-        return panic!("Multiple emails with same ID: {}", id);
+        send_snacks(
+            "Multiple emails found".to_string(),
+            SnackSeverity::Error,
+            SnackVertical::Top,
+            SnackHorizontal::Right,
+            &app,
+        );
+        return Err(Error::NotFound);
     } else {
         all_emails.first().unwrap()
     };

@@ -7,9 +7,11 @@ use crate::commands::google::oauth::renew_token;
 use crate::commands::helper::helper_messages::*;
 use crate::database::email_repository;
 use crate::database::keychain_entry_repository::fetch_keychain_entry_google;
+use crate::snacks::snacks::send_snacks;
 use crate::structs::google::email::GEmail;
 use crate::structs::imap_email::WebEmailPreview;
 use crate::structs::keychain_entry::KeychainEntry;
+use crate::structs::snack::{SnackHorizontal, SnackSeverity, SnackVertical};
 use chrono::NaiveDateTime;
 use log::error;
 use tauri::{AppHandle, Emitter};
@@ -25,19 +27,26 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folde
                 "Error while fetching all emails in folder: {} \n {:?}",
                 folder, e
             );
+            send_snacks(
+                "Error while fetching emails".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
             vec![]
         }
     };
 
     if db_emails.len() == 0 {
-        let mut imap_session = open_imap_session(keychain_entry, &*folder).await;
+        let mut imap_session = open_imap_session(keychain_entry, &*folder, &app).await;
         let messages_stream = imap_session.fetch("1:*", "RFC822").ok();
         imap_session.logout().ok();
         if messages_stream.is_some() {
             let messages = messages_stream.unwrap();
             web_emails = messages
                 .iter()
-                .map(|message| parse_message(message, folder.clone()))
+                .map(|message| parse_message(message, folder.clone(), &app))
                 .collect::<Vec<WebEmailPreview>>();
         }
     } else {
@@ -45,12 +54,13 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folde
 
         if last_email.is_some() {
             web_emails = fetch_by_query(
+                app,
                 keychain_entry,
                 last_email.unwrap().delivered_at.clone(),
                 folder,
             )
-            .await
-            .unwrap();
+                .await
+                .unwrap();
         }
     }
 
@@ -58,17 +68,26 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folde
 
     web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
 
-    app.emit("new_emails", web_emails)
-        .expect("Could not emit email");
+    app.emit("new_emails", web_emails).unwrap_or_else(|e| {
+        error!("Error while emitting new emails: {:?}", e);
+        send_snacks(
+            "Error while emitting new emails".to_string(),
+            SnackSeverity::Error,
+            SnackVertical::Top,
+            SnackHorizontal::Right,
+            &app,
+        );
+    });
 }
 
 #[tauri::command]
 pub async fn fetch_by_query(
+    app: AppHandle,
     keychain_entry: KeychainEntry,
     since: NaiveDateTime,
     folder: String,
 ) -> Result<Vec<WebEmailPreview>, ()> {
-    let mut imap_session = open_imap_session(keychain_entry, &*folder).await;
+    let mut imap_session = open_imap_session(keychain_entry, &*folder, &app).await;
     let formated_since = since.format("%d-%b-%Y").to_string();
     let uids = imap_session
         .uid_search(format!("NEW SINCE {}", formated_since))
@@ -83,7 +102,7 @@ pub async fn fetch_by_query(
             .unwrap();
         let message = messages_stream.first();
         if message.is_some() {
-            web_emails.push(parse_message(message.unwrap(), folder.clone()));
+            web_emails.push(parse_message(message.unwrap(), folder.clone(), &app));
         }
     }
     imap_session.logout().ok();
@@ -91,19 +110,19 @@ pub async fn fetch_by_query(
 }
 
 #[tauri::command]
-pub async fn fetch_gmail_messages(handle: AppHandle) -> Vec<GEmail> {
+pub async fn fetch_gmail_messages(app: AppHandle) -> Vec<GEmail> {
     let google_keychain_entries = fetch_keychain_entry_google();
-    let handle_clone = handle.clone();
+    let handle_clone = app.clone();
 
     let mut mails: Vec<GEmail> = vec![];
 
     for entry in google_keychain_entries {
         let access_token = renew_token(&handle_clone, &entry.id).await;
 
-        let all_emails_light = fetch_gmail_light_response(&entry, &access_token).await;
+        let all_emails_light = fetch_gmail_light_response(&entry, &access_token, &app).await;
 
         for email_light in all_emails_light.messages {
-            mails.push(fetch_gmail_message(&access_token.token, email_light.id, &entry.id).await)
+            mails.push(fetch_gmail_message(&access_token.token, email_light.id, &entry.id, &app).await)
         }
     }
 

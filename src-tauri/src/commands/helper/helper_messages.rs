@@ -19,6 +19,9 @@ use native_tls::{TlsConnector, TlsStream};
 use regex::Regex;
 use std::collections::HashSet;
 use std::net::TcpStream;
+use tauri::AppHandle;
+use crate::snacks::snacks::send_snacks;
+use crate::structs::snack::{SnackHorizontal, SnackSeverity, SnackVertical};
 
 async fn login_imap_session(
     host: &str,
@@ -26,11 +29,19 @@ async fn login_imap_session(
     login: &str,
     password: &str,
     folder: &str,
+    app: &AppHandle
 ) -> Session<TlsStream<TcpStream>> {
     let imap_addr = (host, port);
     let tcp_stream = match TcpStream::connect(imap_addr) {
         Ok(tcp) => tcp,
         Err(e) => {
+            send_snacks(
+                format!("Failed to connect to {}:{}", imap_addr.0, imap_addr.1),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
             error!("Failed to connect to {}:{}", imap_addr.0, imap_addr.1);
             panic!("{e}");
         }
@@ -38,6 +49,13 @@ async fn login_imap_session(
     let tls = match TlsConnector::new() {
         Ok(tls) => tls,
         Err(e) => {
+            send_snacks(
+                "Failed to create TLS connector".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
             error!("Failed to create TLS connector");
             panic!("{e}");
         }
@@ -45,6 +63,13 @@ async fn login_imap_session(
     let tls_stream = match tls.connect(host, tcp_stream) {
         Ok(stream) => stream,
         Err(e) => {
+            send_snacks(
+                "Failed to connect to TLS stream".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
             error!("Failed to connect to TLS stream");
             panic!("{e}");
         }
@@ -54,6 +79,13 @@ async fn login_imap_session(
     let mut imap_session = match client.login(login, password) {
         Ok(s) => s,
         Err(e) => {
+            send_snacks(
+                "Failed to login to IMAP server".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
             error!("Failed to login to IMAP server");
             panic!("{}", e.0);
         }
@@ -61,10 +93,27 @@ async fn login_imap_session(
 
     if folder.eq("") {
         imap_session
-            .select("INBOX")
-            .expect("Failed to select INBOX");
+            .select("INBOX").unwrap_or_else(|e| {
+                send_snacks(
+                    "Failed to select INBOX".to_string(),
+                    SnackSeverity::Error,
+                    SnackVertical::Top,
+                    SnackHorizontal::Right,
+                    &app,
+                );
+                panic!("{e}");
+            });
     } else {
-        imap_session.select(folder).expect("Failed to select INBOX");
+        imap_session.select(folder).unwrap_or_else(|e| {
+            send_snacks(
+                format!("Failed to select folder {}", folder),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
+            panic!("{e}");
+        });
     }
 
     imap_session
@@ -73,10 +122,11 @@ async fn login_imap_session(
 pub async fn open_imap_session(
     keychain_entry: KeychainEntry,
     folder: &str,
+    app: &AppHandle
 ) -> Session<TlsStream<TcpStream>> {
     let simple_mail_creds = fetch_by_keychain_id(&keychain_entry.id);
     let login = &simple_mail_creds.username;
-    let password = &fetch_keyring_entry(KEYCHAIN_KEY_IMAP_PASSWORD, &keychain_entry.id);
+    let password = &fetch_keyring_entry(KEYCHAIN_KEY_IMAP_PASSWORD, &keychain_entry.id, &app);
     let port = match u16::try_from(simple_mail_creds.imap_port) {
         Ok(p) => p,
         Err(e) => {
@@ -85,7 +135,7 @@ pub async fn open_imap_session(
     };
     let host = &*simple_mail_creds.imap_host;
 
-    login_imap_session(host, port, login, password, folder).await
+    login_imap_session(host, port, login, password, folder, app).await
 }
 
 fn get_deliver_date(mail: &Message) -> NaiveDateTime {
@@ -125,9 +175,9 @@ fn get_deliver_date(mail: &Message) -> NaiveDateTime {
     panic!("Failed to find delivery date");
 }
 
-pub fn parse_message(message: &Fetch, folder_path: String) -> WebEmailPreview {
+pub fn parse_message(message: &Fetch, folder_path: String, app: &AppHandle) -> WebEmailPreview {
     let body_raw = message.body().expect("message did not have a body!");
-    let message = decode_message(body_raw);
+    let message = decode_message(body_raw, app);
 
     let message_id = match message.message_id() {
         None => "".to_string(),
@@ -190,6 +240,13 @@ pub fn parse_message(message: &Fetch, folder_path: String) -> WebEmailPreview {
         match email_repository::save_full_email(&mut mail) {
             Ok(_) => {}
             Err(e) => {
+                send_snacks(
+                    format!("Error while saving email: {}", mail.subject),
+                    SnackSeverity::Error,
+                    SnackVertical::Top,
+                    SnackHorizontal::Right,
+                    &app,
+                );
                 panic!("Error while saving email: {} \n {}", mail.subject, e)
             }
         };
@@ -327,11 +384,18 @@ fn build_attachments(message: &Message) -> Vec<Attachment> {
     attachments
 }
 
-fn decode_message(body_raw: &[u8]) -> Message {
+fn decode_message<'a>(body_raw: &'a [u8], app: &'a AppHandle) -> Message<'a> {
     let mail = MessageParser::default()
         .parse(body_raw)
         .ok_or_else(|| {
-            println!("Failed to parse message");
+            error!("Failed to parse email");
+            send_snacks(
+                "Failed to parse email".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
         })
         .unwrap();
 
@@ -364,6 +428,7 @@ fn fetch_text_bodies(iterator: BodyPartIterator) -> Vec<String> {
 pub async fn fetch_gmail_light_response(
     entry: &KeychainEntry,
     access_token: &AccessToken,
+    app: &AppHandle,
 ) -> EmailLightResponse {
     let uri_all_gmails = format!(
         "https://gmail.googleapis.com/gmail/v1/users/{}/messages",
@@ -381,6 +446,13 @@ pub async fn fetch_gmail_light_response(
     let all_gmails_response = match all_gmails {
         Ok(response) => response,
         Err(error) => {
+            send_snacks(
+                "Error getting all messages from Google".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
             panic!("Error getting all messages from Google: {:?}", error);
         }
     };
@@ -388,12 +460,19 @@ pub async fn fetch_gmail_light_response(
     match all_gmails_response.json::<EmailLightResponse>().await {
         Ok(vec) => vec,
         Err(e) => {
+            send_snacks(
+                "Error parsing JSON".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
             panic!("Error parsing JSON: {:?}", e);
         }
     }
 }
 
-pub async fn fetch_gmail_message(access_token: &String, id: String, user: &String) -> GEmail {
+pub async fn fetch_gmail_message(access_token: &String, id: String, user: &String, app: &AppHandle) -> GEmail {
     let uri = format!(
         "https://gmail.googleapis.com/gmail/v1/users/{}/messages/{}",
         user, id
@@ -410,6 +489,13 @@ pub async fn fetch_gmail_message(access_token: &String, id: String, user: &Strin
     let message_response = match message {
         Ok(response) => response,
         Err(error) => {
+            send_snacks(
+                "Error getting message from Google".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
             panic!("Error getting message from Google: {:?}", error);
         }
     };
@@ -417,6 +503,13 @@ pub async fn fetch_gmail_message(access_token: &String, id: String, user: &Strin
     let mut mail_raw: GEmail = match message_response.json::<GEmail>().await {
         Ok(gemail) => gemail,
         Err(e) => {
+            send_snacks(
+                "Error parsing JSON".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
             panic!("Error parsing JSON: {:?}", e);
         }
     };

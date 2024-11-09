@@ -1,5 +1,5 @@
 import './EmailAttachmentComponent.scss';
-import { EmailAttachment } from '../../../interfaces/Email.ts';
+import { EmailAttachment } from '../../../interfaces/WebEmail.ts';
 import { BaseDirectory, writeFile } from '@tauri-apps/plugin-fs';
 
 interface EmailAttachmentProps {

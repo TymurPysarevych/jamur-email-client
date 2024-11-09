@@ -30,7 +30,8 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             fetch_messages,
-            fetch_by_query,
+            fetch_messages_by_query,
+            fetch_message_by_id,
             authenticate_google,
             fetch_gmail_messages,
             credentials_exist,

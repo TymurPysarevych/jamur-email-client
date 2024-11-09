@@ -1,7 +1,7 @@
 import './style.scss';
 import { emailsPreviewState, keychainEntriesState } from '../../state/atoms.ts';
 import { useRecoilValue, useSetRecoilState } from 'recoil';
-import { Folder, WebEmailPreview, WebFolders } from '../../interfaces/Email.ts';
+import { Folder, WebEmailPreview, WebFolders } from '../../interfaces/WebEmail.ts';
 import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
 import { KEYCHAIN_KEY_GMAIL, KEYCHAIN_KEY_IMAP } from '../../interfaces/KeychainEntry.ts';
 import { useEffect, useState } from 'react';

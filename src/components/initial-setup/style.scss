@@ -1,0 +1,15 @@
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.center hr {
+  width: 250px;
+}
+
+.initial-setup-container {
+  height: -webkit-fill-available;
+  color: var(--accent-color);
+}

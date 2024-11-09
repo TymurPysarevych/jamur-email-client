@@ -1,0 +1,30 @@
+.button {
+  background-color: var(--accent-color);
+  color: black;
+  border: none;
+  padding: 8px 12px;
+  border-radius: var(--border-radius);
+  width: fit-content;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.button-disabled {
+  border: none;
+  padding: 8px 12px;
+  border-radius: var(--border-radius);
+  width: fit-content;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--disabled-accent-color);
+  color: var(--disabled-text-color);
+  cursor: not-allowed;
+}
+
+.button:hover {
+  cursor: pointer;
+  background-color: var(--highlight-color);
+  color: white;
+}

@@ -1,4 +1,4 @@
-name: 'publish'
+name: 'publish-dev'
 
 on:
   push:
@@ -37,7 +37,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-          cache: "pnpm"
+          cache: 'pnpm'
 
       - name: install ✨dependencies
         run: pnpm install

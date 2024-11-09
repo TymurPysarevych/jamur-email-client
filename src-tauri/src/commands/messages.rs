@@ -3,290 +3,128 @@ extern crate encoding_rs;
 extern crate imap;
 extern crate native_tls;
 
-use crate::structs::email::{Attachment, Email};
-use base64::engine::general_purpose;
-use base64::Engine;
-use chrono::prelude::DateTime;
-use chrono::Utc;
-use dotenv::dotenv;
-use encoding_rs::*;
-use imap::types::Fetch;
-use imap::{Client, Session};
-use log::{error, info, warn};
-use mail_parser::{BodyPartIterator, Header, Message, MessageParser, MimeHeaders};
-use native_tls::{TlsConnector, TlsStream};
-use regex::Regex;
-use std::collections::HashSet;
-use std::env::var;
-use std::net::TcpStream;
-use std::string::ToString;
-use std::time::{Duration, UNIX_EPOCH};
+use crate::commands::google::oauth::renew_token;
+use crate::commands::helper::helper_messages::*;
+use crate::database::email_repository;
+use crate::database::keychain_entry_repository::fetch_keychain_entry_google;
+use crate::snacks::snacks::send_snacks;
+use crate::structs::google::email::GEmail;
+use crate::structs::imap_email::WebEmailPreview;
+use crate::structs::keychain_entry::KeychainEntry;
+use crate::structs::snack::{SnackHorizontal, SnackSeverity, SnackVertical};
+use chrono::NaiveDateTime;
+use log::error;
+use tauri::{AppHandle, Emitter};
 
 #[tauri::command]
-pub async fn fetch_messages(_server: String, _login: String, _password: String) -> Result<Vec<Email>, ()> {
-    dotenv().ok();
-    let env_server = var("SERVER").expect("SERVER must be set.");
-    let env_login = var("LOGIN").expect("LOGIN must be set.");
-    let env_password = var("PASSWORD").expect("PASSWORD must be set.");
+pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folder: String) {
+    let mut web_emails: Vec<WebEmailPreview> = vec![];
 
-    let mut imap_session = open_imap_session(&env_server, &env_login, &env_password).await;
+    let db_emails = match email_repository::fetch_all_by_folder_path(folder.clone()) {
+        Ok(m) => m,
+        Err(e) => {
+            error!(
+                "Error while fetching all emails in folder: {} \n {:?}",
+                folder, e
+            );
+            send_snacks(
+                "Error while fetching emails".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
+            vec![]
+        }
+    };
 
-    let messages_stream = imap_session.fetch("1:*", "RFC822").ok();
-    info!("fetched messages");
-    imap_session.logout().ok();
-    info!("logged out");
+    if db_emails.len() == 0 {
+        let mut imap_session = open_imap_session(keychain_entry, &*folder, &app).await;
+        let messages_stream = imap_session.fetch("1:*", "RFC822").ok();
+        imap_session.logout().ok();
+        if messages_stream.is_some() {
+            let messages = messages_stream.unwrap();
+            web_emails = messages
+                .iter()
+                .map(|message| parse_message(message, folder.clone(), &app))
+                .collect::<Vec<WebEmailPreview>>();
+        }
+    } else {
+        let last_email = db_emails.first();
 
-    let messages = messages_stream.unwrap();
+        if last_email.is_some() {
+            web_emails = fetch_by_query(
+                app.clone(),
+                keychain_entry,
+                last_email.unwrap().delivered_at.clone(),
+                folder,
+            )
+                .await
+                .unwrap();
+        }
+    }
 
-    let web_emails: Vec<Email> = messages.iter()
-        .map(|message| {
-            parse_message(message)
-        }).collect::<Vec<Email>>();
-    // web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
-    Ok(web_emails)
+    web_emails.extend(db_emails);
+
+    web_emails.sort_by(|a, b| b.delivered_at.cmp(&a.delivered_at));
+
+    app.emit("new_emails", web_emails).unwrap_or_else(|e| {
+        error!("Error while emitting new emails: {:?}", e);
+        send_snacks(
+            "Error while emitting new emails".to_string(),
+            SnackSeverity::Error,
+            SnackVertical::Top,
+            SnackHorizontal::Right,
+            &app,
+        );
+    });
 }
 
 #[tauri::command]
-pub async fn fetch_by_query(_server: String, _login: String, _password: String, since: String) -> Result<Vec<Email>, ()> {
-    dotenv().ok();
-    let env_server = var("SERVER").expect("SERVER must be set.");
-    let env_login = var("LOGIN").expect("LOGIN must be set.");
-    let env_password = var("PASSWORD").expect("PASSWORD must be set.");
-    let mut imap_session = open_imap_session(env_server.as_str(), env_login.as_str(), env_password.as_str()).await;
+pub async fn fetch_by_query(
+    app: AppHandle,
+    keychain_entry: KeychainEntry,
+    since: NaiveDateTime,
+    folder: String,
+) -> Result<Vec<WebEmailPreview>, ()> {
+    let mut imap_session = open_imap_session(keychain_entry, &*folder, &app).await;
+    let formated_since = since.format("%d-%b-%Y").to_string();
+    let uids = imap_session
+        .uid_search(format!("NEW SINCE {}", formated_since))
+        .unwrap();
 
-    // since = 20-Jul-2024
-
-    let uids = imap_session.uid_search(format!("SEEN SINCE {}", since)).unwrap();
-    info!("{} messages seen since {}", uids.len(), since);
-
-    let mut web_emails: Vec<Email> = vec![];
+    let mut web_emails: Vec<WebEmailPreview> = vec![];
 
     for uid in uids {
-        let messages_stream = imap_session.uid_fetch(format!("{}", uid), "BODY[]").ok();
-
-        let messages = messages_stream.unwrap();
-
-        let message = messages.first().unwrap();
-
-        web_emails.push(parse_message(message));
+        let messages_stream = imap_session
+            .uid_fetch(format!("{}", uid), "BODY[]")
+            .ok()
+            .unwrap();
+        let message = messages_stream.first();
+        if message.is_some() {
+            web_emails.push(parse_message(message.unwrap(), folder.clone(), &app));
+        }
     }
-
     imap_session.logout().ok();
-
     Ok(web_emails)
 }
 
-async fn open_imap_session(server: &str, login: &str, password: &str) -> Session<TlsStream<TcpStream>> {
-    let imap_addr = (server, 993);
-    let tcp_stream = TcpStream::connect(imap_addr).unwrap();
-    let tls = TlsConnector::new().unwrap();
-    let tls_stream = tls.connect(server, tcp_stream).unwrap();
+#[tauri::command]
+pub async fn fetch_gmail_messages(app: AppHandle) -> Vec<GEmail> {
+    let google_keychain_entries = fetch_keychain_entry_google();
+    let handle_clone = app.clone();
 
-    let client = Client::new(tls_stream);
-    info!("connected to {}:{}", imap_addr.0, imap_addr.1);
+    let mut mails: Vec<GEmail> = vec![];
 
-    let mut imap_session = client.login(login, password).unwrap();
+    for entry in google_keychain_entries {
+        let access_token = renew_token(&handle_clone, &entry.id).await;
 
-    info!("fetching messages from INBOX");
-    imap_session.select("INBOX").unwrap();
-    imap_session
-}
+        let all_emails_light = fetch_gmail_light_response(&entry, &access_token, &app).await;
 
-fn get_deliver_date(mail: &Message) -> String {
-    let mut delivered: Option<Header> = None;
-
-    for part in mail.clone().parts {
-        for header in part.headers {
-            if header.name().eq("X-Delivery-Time") {
-                delivered = Some(header.clone());
-                break;
-            }
+        for email_light in all_emails_light.messages {
+            mails.push(fetch_gmail_message(&access_token.token, email_light.id, &entry.id, &app).await)
         }
     }
 
-    let d = delivered.clone();
-
-    if d.is_some() {
-        let epoch = d.unwrap().value.as_text().unwrap().parse::<u64>().unwrap();
-        let d = UNIX_EPOCH + Duration::from_secs(epoch);
-        let datetime = DateTime::<Utc>::from(d);
-        return datetime.format("%d-%m-%Y %H:%M:%S").to_string();
-    }
-    "".to_string()
-}
-
-fn parse_message(message: &Fetch) -> Email {
-    let body_raw = message.body().expect("message did not have a body!");
-    let message = decode_message(body_raw);
-
-    let all_attachments = build_attachments(&message);
-    let mut bodies: Vec<String> = vec![];
-    let mut attachments: Vec<Attachment> = vec![];
-
-    if message.html_body_count().gt(&0) {
-        let html_bodies = fetch_html_bodies(message.html_bodies(), all_attachments);
-        bodies.extend(html_bodies.iter().map(|b| b.0.clone()).collect::<Vec<String>>());
-        attachments.extend(html_bodies.iter().flat_map(|b| b.1.clone()).collect::<HashSet<Attachment>>().into_iter().collect::<Vec<Attachment>>());
-    } else if message.text_body_count().gt(&0) {
-        bodies.extend(fetch_text_bodies(message.text_bodies()));
-        attachments.extend(all_attachments);
-    }
-
-    let delivered_at = get_deliver_date(&message);
-    let from_addresses = message.from().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
-    let to_addresses = message.to().unwrap().as_list().into_iter().flat_map(|a| a.first()).map(|a| a.address.clone());
-
-    let mail = Email {
-        id: message.message_id().unwrap().to_string(),
-        delivered_at,
-        from: from_addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>(),
-        to: to_addresses.map(|a| a.unwrap().to_string()).collect::<Vec<String>>(),
-        subject: message.subject().unwrap().to_string(),
-        bodies,
-        attachments,
-    };
-    mail
-}
-
-fn replace_images(mut body: String, mut attachments: Vec<Attachment>) -> (String, Vec<Attachment>) {
-    let regex = match Regex::new(r#"src="cid:[^"]*""#) {
-        Ok(r) => r,
-        Err(e) => {
-            warn!("Failed to compile regex: {e}");
-            return (body.clone(), attachments.clone());
-        }
-    };
-
-    let caps = regex.captures_iter(&*body).map(|cap| cap[0].to_string()).collect::<HashSet<String>>();
-    let file_regex = match Regex::new(r#":([^@]+)@*"#) {
-        Ok(r) => r,
-        Err(e) => {
-            warn!("Failed to compile regex: {e}");
-            return (body.clone(), attachments.clone());
-        }
-    };
-
-
-    let mut replaced_body = "".to_string();
-    let mut attachments_to_be_deleted: HashSet<Attachment> = HashSet::new();
-    caps.into_iter().for_each(|cap| {
-        replaced_body = body.clone();
-
-        let filename_captures = match file_regex.captures(&*cap) {
-            None => {
-                error!("Failed to find filename in {cap}");
-                return;
-            }
-            Some(f) => f,
-        };
-
-        let filename = match filename_captures.get(1) {
-            None => "".to_string(),
-            Some(f) => f.as_str().to_string(),
-        };
-
-        let clean_cid = filename.replace("\"", "");
-
-        let file_ending = clean_cid.split(".").last().unwrap();
-
-        let optional_attachment = attachments.iter().find(|a| clean_cid.contains(a.filename.as_str()) || clean_cid.contains(a.content_id.as_str()));
-        if optional_attachment.is_some() {
-            let attachment = optional_attachment.unwrap();
-            let content = general_purpose::STANDARD.encode(&attachment.content);
-
-            let cid_replacement = format!("src=\"data:image/{};base64,{}\"", file_ending, content);
-            replaced_body = body.replace(&cap, &cid_replacement);
-            body = replaced_body.clone();
-            attachments_to_be_deleted.insert(attachment.clone());
-        } else {
-            // if this happens, the attachment was lost in the process.
-            // Probably due to email servers not sending the attachment as expected.
-            replaced_body = body.clone();
-        }
-    });
-    attachments.retain(|a| !attachments_to_be_deleted.contains(a));
-    (body.clone(), attachments.clone())
-}
-
-fn build_attachments(message: &Message) -> Vec<Attachment> {
-    let mut attachments: Vec<Attachment> = vec![];
-
-    message.attachments.iter().for_each(|attachment_index| {
-        let optional_part = message.parts.get(*attachment_index);
-        if optional_part.is_some() {
-            let mut filename = "".to_string();
-            let mut content_id = "".to_string();
-
-            let part = optional_part.unwrap();
-
-            for header in part.headers.iter() {
-                if header.name().eq("Content-Type") || header.name().eq("Content-Disposition") {
-                    let optional_header_content_type = header.value.as_content_type();
-                    if optional_header_content_type.is_some() {
-                        let optional_attributes = optional_header_content_type.unwrap().attributes();
-                        if optional_attributes.is_some() {
-                            let attributes = optional_attributes.unwrap();
-                            let filename_attribute = attributes.iter().find(|a| a.0.eq("name") || a.0.eq("filename"));
-                            if filename_attribute.is_some() {
-                                filename = filename_attribute.unwrap().1.to_string();
-                            }
-                        }
-                    }
-                } else if header.name().eq("Content-ID") {
-                    let optional_header_content_id = header.value.as_text_list();
-                    if optional_header_content_id.is_some() {
-                        content_id = match optional_header_content_id.unwrap().first() {
-                            None => { panic!("Content-ID header was empty") }
-                            Some(s) => s.to_string(),
-                        }
-                    }
-                }
-                if !filename.is_empty() && !content_id.is_empty() {
-                    break;
-                }
-            }
-
-            let encoding = part.content_transfer_encoding().or(Some("")).unwrap().to_string();
-
-            attachments.push(Attachment {
-                filename,
-                content_id,
-                content: part.contents().to_vec(),
-                encoding,
-            });
-        }
-    });
-
-    attachments
-}
-
-fn decode_message(body_raw: &[u8]) -> Message {
-    let mail = MessageParser::default().parse(body_raw).ok_or_else(|| {
-        println!("Failed to parse message");
-    }).unwrap();
-
-    mail.into_owned()
-}
-
-fn fetch_html_bodies(iterator: BodyPartIterator, attachments: Vec<Attachment>) -> Vec<(String, Vec<Attachment>)> {
-    let mut bodies: Vec<(String, Vec<Attachment>)> = vec![];
-
-    iterator.for_each(|b| {
-        let (cow, _, _) = UTF_8.decode(&b.contents());
-        bodies.push(replace_images(cow.to_string(), attachments.clone()));
-    });
-
-    bodies
-}
-
-fn fetch_text_bodies(iterator: BodyPartIterator) -> Vec<String> {
-    let mut bodies = vec![];
-
-    iterator.for_each(|b| {
-        let body = b.contents();
-        let (cow, _, _) = UTF_8.decode(&body);
-        bodies.push(cow.to_string());
-    });
-
-    bodies
+    mails
 }

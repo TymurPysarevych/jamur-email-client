@@ -10,6 +10,7 @@ use log::info;
 pub mod commands;
 pub mod database;
 pub mod structs;
+pub mod snacks;
 
 fn main() {
     std::env::set_var("RUST_LOG", "debug");

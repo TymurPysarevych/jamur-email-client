@@ -1,19 +1,24 @@
+use log::error;
+use tauri::{AppHandle};
 use crate::commands::helper::helper_keyring::save_keyring_entry;
 use crate::commands::helper::helper_messages::open_imap_session;
 use crate::database::keychain_entry_repository::KEYCHAIN_KEY_IMAP_PASSWORD;
 use crate::database::{keychain_entry_repository, simple_mail_credentials_repository};
+use crate::snacks::snacks::send_snacks;
 use crate::structs::imap_email::{Folder, WebFolders};
 use crate::structs::keychain_entry::KeychainEntry;
 use crate::structs::simple_mail_credentials::WebSimpleMailCredentials;
+use crate::structs::snack::{SnackHorizontal, SnackSeverity, SnackVertical};
 
 #[tauri::command]
-pub fn save_imap_config(web_creds: WebSimpleMailCredentials) -> Result<(), ()> {
+pub fn save_imap_config(app: AppHandle,web_creds: WebSimpleMailCredentials) -> Result<(), ()> {
     let config = web_creds.config.clone();
 
     save_keyring_entry(
         KEYCHAIN_KEY_IMAP_PASSWORD,
         &config.clone().keychain_id,
         &web_creds.password,
+        &app,
     );
 
     keychain_entry_repository::save_keychain_entry_imap(&KeychainEntry {
@@ -25,12 +30,19 @@ pub fn save_imap_config(web_creds: WebSimpleMailCredentials) -> Result<(), ()> {
 }
 
 #[tauri::command]
-pub async fn fetch_imap_folders(keychain_entry: KeychainEntry) -> Result<WebFolders, ()> {
-    let mut imap_session = open_imap_session(keychain_entry, "").await;
+pub async fn fetch_imap_folders(app:AppHandle, keychain_entry: KeychainEntry) -> Result<WebFolders, ()> {
+    let mut imap_session = open_imap_session(keychain_entry, "", &app).await;
 
     let folders = match imap_session.list(None, Some("*")) {
         Ok(l) => l,
         Err(e) => {
+            send_snacks(
+                "Failed to list IMAP folders".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
             panic!("Failed to list IMAP folders {}", e);
         }
     };
@@ -38,7 +50,16 @@ pub async fn fetch_imap_folders(keychain_entry: KeychainEntry) -> Result<WebFold
     let names: Vec<String> = folders.into_iter().map(|f| f.name().to_string()).collect();
 
     let delimiter = match folders.first() {
-        None => panic!("No folders found"),
+        None => {
+            send_snacks(
+                "No folders found".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
+            panic!("No folders found");
+        },
         Some(f) => f.delimiter().or_else(|| Some("/")).unwrap().to_string(),
     };
 

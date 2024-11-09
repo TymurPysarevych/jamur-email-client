@@ -56,28 +56,29 @@ export default function Menu() {
   }, [selectedFolder]);
 
   const buildFoldersForEachEntry = () => {
-    return Array.from(subfolderMap.keys()).map((parent) => {
+    return Array.from(subfolderMap.keys()).map((parent, indexParent) => {
       const webFolders = subfolderMap.get(parent);
       if (!webFolders) {
         return <></>;
       }
 
-      const buildFolder = (folder: Folder) => {
+      const buildFolder = (folder: Folder, index: number) => {
         return (
           <TreeItem
             onClick={() => setSelectedFolder(folder.fullPath)}
             itemId={folder.fullPath}
-            key={folder.fullPath}
+            key={`${folder.folderName}-${index}`}
             label={folder.folderName}
           >
-            {folder.children.map((child) => buildFolder(child))}
+            {folder.children.map((child, indexChild) => buildFolder(child, indexChild))}
           </TreeItem>
         );
       };
+
       return (
-        <SimpleTreeView>
-          <TreeItem itemId={parent} label={parent} key={parent}>
-            {webFolders.folders.map((folder) => buildFolder(folder))}
+        <SimpleTreeView key={`${parent}${indexParent}`}>
+          <TreeItem itemId={`${parent}${indexParent}`} label={parent} key={`${parent}${indexParent}`}>
+            {webFolders.folders.map((folder, index) => buildFolder(folder, index))}
           </TreeItem>
         </SimpleTreeView>
       );

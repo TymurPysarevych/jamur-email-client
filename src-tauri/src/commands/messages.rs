@@ -54,7 +54,7 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folde
 
         if last_email.is_some() {
             web_emails = fetch_by_query(
-                app,
+                app.clone(),
                 keychain_entry,
                 last_email.unwrap().delivered_at.clone(),
                 folder,

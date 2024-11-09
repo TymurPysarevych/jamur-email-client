@@ -33,3 +33,8 @@ export const snacksState = atom<Snacks>({
     severity: 'success'
   }
 });
+
+export const localeState = atom<string>({
+  key: 'localeState',
+  default: 'en-US'
+});

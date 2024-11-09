@@ -1,15 +1,16 @@
 import './style.scss';
-import { useRecoilValue, useSetRecoilState } from 'recoil';
+import { useRecoilState, useRecoilValue } from 'recoil';
 import { emailsPreviewState, selectedEmailState } from '../../../state/atoms.ts';
 import { useTauriInvoke } from '../../../utils/UseTauriInvoke.ts';
 import { WebEmail } from '../../../interfaces/WebEmail.ts';
 
 export default function EmailPreview() {
   const emails = useRecoilValue(emailsPreviewState);
-  const setSelectedEmail = useSetRecoilState(selectedEmailState);
+  const [selectedEmail, setSelectedEmail] = useRecoilState(selectedEmailState);
   const [fetchEmailById] = useTauriInvoke<WebEmail>();
 
   async function loadEmail(id: number) {
+    if (id === selectedEmail.id) return;
     setSelectedEmail({} as WebEmail);
     const email = await fetchEmailById('fetch_message_by_id', { id });
     setSelectedEmail(email);

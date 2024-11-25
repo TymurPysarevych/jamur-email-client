@@ -102,7 +102,6 @@ pub async fn fetch_messages_by_query(
 ) -> Result<Vec<WebEmailPreview>, ()> {
     let mut imap_session = open_imap_session(keychain_entry, &*folder, &app).await;
     let formated_since = since.format("%d-%b-%Y").to_string();
-    println!("Fetching emails since: {}", formated_since);
     let uids = imap_session
         .uid_search(format!("SINCE {}", formated_since))
         .unwrap();

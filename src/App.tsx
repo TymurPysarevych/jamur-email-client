@@ -6,7 +6,7 @@ import { keychainEntriesState, selectedEmailState, snacksState } from './state/a
 import { useEffect, useState } from 'react';
 import { KeychainEntry } from './interfaces/KeychainEntry.ts';
 import { useTauriInvoke } from './utils/UseTauriInvoke.ts';
-import EmailPreview from './components/email/preview/EmailPreview.tsx';
+import { EmailPreview } from './components/email/preview/EmailPreview.tsx';
 import { listen } from '@tauri-apps/api/event';
 import { Snacks } from './interfaces/Snacks.ts';
 import SnacksView from './components/snacks/SnacksView.tsx';

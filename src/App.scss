@@ -47,7 +47,6 @@ body {
 }
 
 .container {
-  height: -webkit-max-content;
   width: -webkit-fill-available;
   background-color: var(--secondary-color);
   display: flex;
@@ -55,11 +54,13 @@ body {
   &--email-preview {
     width: 100%;
     max-width: 300px;
+    overflow: auto;
   }
 
   &--email-view {
     width: 100%;
     padding: 20px;
+    overflow: auto;
   }
 }
 

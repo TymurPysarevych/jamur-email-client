@@ -6,8 +6,7 @@ import { localeState, selectedEmailState } from '../../../state/atoms.ts';
 import { Divider } from '@mui/material';
 
 export default function EmailDetailsComponent() {
-  const { to, from, htmlBodies, textBodies, attachments, deliveredAt, subject, id } =
-    useRecoilValue(selectedEmailState);
+  const { to, from, htmlBodies, textBodies, attachments, deliveredAt, subject } = useRecoilValue(selectedEmailState);
   const locale = useRecoilValue(localeState);
 
   const parseDate = (deliveredAt: string) => {

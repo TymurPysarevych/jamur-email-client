@@ -4,7 +4,7 @@ import { emailsPreviewState, selectedEmailState } from '../../../state/atoms.ts'
 import { useTauriInvoke } from '../../../utils/UseTauriInvoke.ts';
 import { WebEmail, WebEmailPreview } from '../../../interfaces/WebEmail.ts';
 
-export default function EmailPreview() {
+export const EmailPreview = () => {
   const emails = useRecoilValue(emailsPreviewState);
   const [selectedEmail, setSelectedEmail] = useRecoilState(selectedEmailState);
   const [fetchEmailById] = useTauriInvoke<WebEmail>();
@@ -31,4 +31,4 @@ export default function EmailPreview() {
       ))}
     </div>
   );
-}
+};

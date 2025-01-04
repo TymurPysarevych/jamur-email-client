@@ -1,6 +1,6 @@
 import './style.scss';
 import { emailsPreviewState, keychainEntriesState, selectedEmailState } from '../../state/atoms.ts';
-import { useRecoilState, useRecoilValue, useSetRecoilState } from 'recoil';
+import { useRecoilValue, useSetRecoilState } from 'recoil';
 import { Folder, WebEmail, WebEmailPreview, WebFolders } from '../../interfaces/WebEmail.ts';
 import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
 import { KEYCHAIN_KEY_GMAIL, KEYCHAIN_KEY_IMAP } from '../../interfaces/KeychainEntry.ts';
@@ -11,7 +11,7 @@ import { listen } from '@tauri-apps/api/event';
 export default function Menu() {
   const keychainEntries = useRecoilValue(keychainEntriesState);
   const setEmailsPreview = useSetRecoilState(emailsPreviewState);
-  const [selectedEmail, setSelectedEmail] = useRecoilState(selectedEmailState);
+  const setSelectedEmail = useSetRecoilState(selectedEmailState);
   const [fetchImapMessages] = useTauriInvoke();
   // const [fetchGmailMessages] = useTauriInvoke<Array<GEmail>>();
   const [fetchImapFolders] = useTauriInvoke<WebFolders>();

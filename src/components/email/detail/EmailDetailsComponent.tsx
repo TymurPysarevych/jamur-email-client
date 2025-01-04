@@ -9,7 +9,7 @@ export default function EmailDetailsComponent() {
     useRecoilValue(selectedEmailState);
   const locale = useRecoilValue(localeState);
 
-  function parseDate(deliveredAt: string) {
+  const parseDate = (deliveredAt: string) => {
     const date = new Date(deliveredAt);
     const formatter = new Intl.DateTimeFormat(locale, {
       year: 'numeric',
@@ -20,23 +20,35 @@ export default function EmailDetailsComponent() {
       second: 'numeric'
     });
     return formatter.format(date);
-  }
+  };
 
-  function bodies() {
+  const bodies = () => {
     if (htmlBodies.length > 0) {
       return <EmailBody bodies={htmlBodies} />;
     } else if (textBodies.length > 0) {
       return <EmailBody bodies={textBodies} />;
     }
     return <div>---</div>;
-  }
+  };
+
+  const recipients = () => {
+    if (to.length > 1) {
+      return (
+        <>
+          <div className="bubble">{to[0]}</div>
+          <div className="bubble">& {to.length - 1} more</div>
+        </>
+      );
+    }
+    return <div className="bubble">{to[0]}</div>;
+  };
 
   return (
     <div>
       <div className="email">
+        <div className="email-address-list">From: {from.join(', ')}</div>
         <h1>{subject}</h1>
-        <div>From: {from.join(', ')}</div>
-        <div>To: {to.join(', ')}</div>
+        <div className="email-address-list">To: {recipients()}</div>
         <div>At: {parseDate(deliveredAt)}</div>
         {bodies()}
         <EmailAttachmentComponent attachments={attachments} />

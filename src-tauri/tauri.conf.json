@@ -12,7 +12,7 @@
   },
   "productName": "jamur-email-client",
   "mainBinaryName": "jamur-email-client",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "identifier": "com.devplix.jamur",
   "plugins": {},
   "app": {

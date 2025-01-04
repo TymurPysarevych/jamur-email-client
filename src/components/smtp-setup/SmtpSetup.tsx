@@ -2,7 +2,7 @@ import './style.scss';
 import { useState } from 'react';
 import Button from '../../ui/button/Button.tsx';
 import { useTauriInvoke } from '../../utils/UseTauriInvoke.ts';
-import { Email } from '../../interfaces/Email.ts';
+import { WebEmail } from '../../interfaces/WebEmail.ts';
 import { useSetRecoilState } from 'recoil';
 import { keychainEntriesState } from '../../state/atoms.ts';
 import { KeychainEntry } from '../../interfaces/KeychainEntry.ts';
@@ -17,7 +17,7 @@ export default function SmtpSetup() {
   const [imapPort, setImapPort] = useState<number>();
   const [smtpHost, setSmtpHost] = useState<string>('');
   const [smtpPort, setSmtpPort] = useState<number>();
-  const [invokeSaveImapConfig] = useTauriInvoke<Array<Email>>();
+  const [invokeSaveImapConfig] = useTauriInvoke<Array<WebEmail>>();
 
   const saveDisabled =
     !email ||

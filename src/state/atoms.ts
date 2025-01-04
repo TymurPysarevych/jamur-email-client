@@ -1,6 +1,6 @@
 import { atom } from 'recoil';
 import { KeychainEntry } from '../interfaces/KeychainEntry.ts';
-import { WebEmailPreview } from '../interfaces/Email.ts';
+import { WebEmail, WebEmailPreview } from '../interfaces/WebEmail.ts';
 import { Snacks } from '../interfaces/Snacks.ts';
 
 export const runningRequestsState = atom<number>({
@@ -18,6 +18,11 @@ export const emailsPreviewState = atom<Array<WebEmailPreview>>({
   default: []
 });
 
+export const selectedEmailState = atom<WebEmail>({
+  key: 'selectedEmailState',
+  default: {} as WebEmail
+});
+
 export const snacksState = atom<Snacks>({
   key: 'snacksState',
   default: {
@@ -27,4 +32,9 @@ export const snacksState = atom<Snacks>({
     message: '',
     severity: 'success'
   }
+});
+
+export const localeState = atom<string>({
+  key: 'localeState',
+  default: 'en-US'
 });

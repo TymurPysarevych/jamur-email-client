@@ -1,5 +1,7 @@
-export interface Email {
-  id: string;
+export interface WebEmail {
+  id: number;
+  emailId: string;
+  folderPath: string;
   deliveredAt: string;
   to: Array<string>;
   from: Array<string>;
@@ -10,7 +12,7 @@ export interface Email {
 }
 
 export interface WebEmailPreview {
-  id: string;
+  id: number;
   deliveredAt: Date;
   to: Array<string>;
   from: Array<string>;

@@ -1,4 +1,3 @@
-use log::error;
 use tauri::{AppHandle};
 use crate::commands::helper::helper_keyring::save_keyring_entry;
 use crate::commands::helper::helper_messages::open_imap_session;

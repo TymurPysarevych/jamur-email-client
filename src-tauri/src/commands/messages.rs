@@ -9,7 +9,7 @@ use crate::database::email_repository;
 use crate::database::keychain_entry_repository::fetch_keychain_entry_google;
 use crate::snacks::snacks::send_snacks;
 use crate::structs::google::email::GEmail;
-use crate::structs::imap_email::WebEmailPreview;
+use crate::structs::imap_email::{WebEmail, WebEmailPreview};
 use crate::structs::keychain_entry::KeychainEntry;
 use crate::structs::snack::{SnackHorizontal, SnackSeverity, SnackVertical};
 use chrono::NaiveDateTime;
@@ -50,18 +50,31 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folde
                 .collect::<Vec<WebEmailPreview>>();
         }
     } else {
-        let last_email = db_emails.first();
+        let last_email = match email_repository::fetch_latest_email_by_folder_path(folder.clone()) {
+            Ok(m) => m,
+            Err(e) => {
+                send_snacks(
+                    "Error while fetching emails".to_string(),
+                    SnackSeverity::Error,
+                    SnackVertical::Top,
+                    SnackHorizontal::Right,
+                    &app,
+                );
+                panic!(
+                    "Error while fetching all emails in folder: {} \n {:?}",
+                    folder, e
+                );
+            }
+        };
 
-        if last_email.is_some() {
-            web_emails = fetch_by_query(
-                app.clone(),
-                keychain_entry,
-                last_email.unwrap().delivered_at.clone(),
-                folder,
-            )
-                .await
-                .unwrap();
-        }
+        web_emails = fetch_messages_by_query(
+            app.clone(),
+            keychain_entry,
+            last_email.delivered_at.clone(),
+            folder,
+        )
+            .await
+            .unwrap();
     }
 
     web_emails.extend(db_emails);
@@ -81,7 +94,7 @@ pub async fn fetch_messages(app: AppHandle, keychain_entry: KeychainEntry, folde
 }
 
 #[tauri::command]
-pub async fn fetch_by_query(
+pub async fn fetch_messages_by_query(
     app: AppHandle,
     keychain_entry: KeychainEntry,
     since: NaiveDateTime,
@@ -90,7 +103,7 @@ pub async fn fetch_by_query(
     let mut imap_session = open_imap_session(keychain_entry, &*folder, &app).await;
     let formated_since = since.format("%d-%b-%Y").to_string();
     let uids = imap_session
-        .uid_search(format!("NEW SINCE {}", formated_since))
+        .uid_search(format!("SINCE {}", formated_since))
         .unwrap();
 
     let mut web_emails: Vec<WebEmailPreview> = vec![];
@@ -107,6 +120,21 @@ pub async fn fetch_by_query(
     }
     imap_session.logout().ok();
     Ok(web_emails)
+}
+
+#[tauri::command]
+pub fn fetch_message_by_id(app: AppHandle, id: i32) -> WebEmail {
+    email_repository::fetch_by_id(id, &app).or_else(|e| {
+        error!("Error while fetching email by id: {:?}", e);
+        send_snacks(
+            "Error while fetching email".to_string(),
+            SnackSeverity::Error,
+            SnackVertical::Top,
+            SnackHorizontal::Right,
+            &app,
+        );
+        Err(())
+    }).unwrap()
 }
 
 #[tauri::command]

@@ -1,16 +1,16 @@
 use crate::database::db_init::establish_connection;
 use crate::database::schema::email::dsl::email as dsl_email;
 use crate::database::schema::{attachment, body, email as schema_email, recipient, sender};
+use crate::snacks::snacks::send_snacks;
 use crate::structs::imap_email::{
     Attachment, Body, Email, Recipient, Sender, WebEmail, WebEmailPreview,
 };
+use crate::structs::snack::{SnackHorizontal, SnackSeverity, SnackVertical};
 use chrono::NaiveDateTime;
 use diesel::result::Error;
 use diesel::{BelongingToDsl, ExpressionMethods, QueryDsl, RunQueryDsl, SelectableHelper};
 use log::error;
 use tauri::AppHandle;
-use crate::snacks::snacks::send_snacks;
-use crate::structs::snack::{SnackHorizontal, SnackSeverity, SnackVertical};
 
 pub fn count_all_by_folder_path(folder_path: String, app: &AppHandle) -> i64 {
     let connection = &mut establish_connection();
@@ -33,19 +33,52 @@ pub fn count_all_by_folder_path(folder_path: String, app: &AppHandle) -> i64 {
     }
 }
 
-pub fn fetch_latest_email_by_folder_path(folder_path: String) -> Option<Email> {
+pub fn fetch_latest_email_by_folder_path(folder_path: String) -> Result<WebEmail, Error> {
     let connection = &mut establish_connection();
     let latest_email = dsl_email
         .filter(schema_email::folder_path.eq(folder_path))
         .select(Email::as_select())
         .order(schema_email::delivered_at.desc())
-        .first(connection);
-    match latest_email {
-        Ok(e) => Some(e),
-        Err(_e) => {
-            None
-        }
-    }
+        .first(connection)?;
+
+    let attachments = Attachment::belonging_to(&latest_email)
+        .select(Attachment::as_select())
+        .load::<Attachment>(connection)?;
+
+    let recipients = Recipient::belonging_to(&latest_email)
+        .select(Recipient::as_select())
+        .load::<Recipient>(connection)?;
+
+    let senders = Sender::belonging_to(&latest_email)
+        .select(Sender::as_select())
+        .load::<Sender>(connection)?;
+
+    let bodies = Body::belonging_to(&latest_email)
+        .select(Body::as_select())
+        .load::<Body>(connection)?;
+
+    let web_mail = WebEmail {
+        id: latest_email.id,
+        folder_path: latest_email.folder_path.clone(),
+        subject: latest_email.subject.clone(),
+        delivered_at: latest_email.delivered_at.clone(),
+        attachments: attachments.iter().map(|a| a.clone()).collect(),
+        to: recipients.iter().map(|r| r.address.clone()).collect(),
+        from: senders.iter().map(|s| s.address.clone()).collect(),
+        html_bodies: bodies
+            .iter()
+            .filter(|b| b.is_html)
+            .map(|b| b.content.clone())
+            .collect(),
+        text_bodies: bodies
+            .iter()
+            .filter(|b| !b.is_html)
+            .map(|b| b.content.clone())
+            .collect(),
+        email_id: latest_email.email_id,
+    };
+
+    Ok(web_mail)
 }
 
 pub fn fetch_all() -> Result<Vec<WebEmail>, Error> {

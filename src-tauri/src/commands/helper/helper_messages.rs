@@ -2,10 +2,12 @@ use crate::commands::helper::helper_keyring::fetch_keyring_entry;
 use crate::database::email_repository;
 use crate::database::keychain_entry_repository::KEYCHAIN_KEY_IMAP_PASSWORD;
 use crate::database::simple_mail_credentials_repository::fetch_by_keychain_id;
+use crate::snacks::snacks::send_snacks;
 use crate::structs::access_token::AccessToken;
 use crate::structs::google::email::{EmailLightResponse, GEmail};
 use crate::structs::imap_email::{Attachment, WebEmail, WebEmailPreview};
 use crate::structs::keychain_entry::KeychainEntry;
+use crate::structs::snack::{SnackHorizontal, SnackSeverity, SnackVertical};
 use base64::engine::general_purpose;
 use base64::engine::general_purpose::URL_SAFE;
 use base64::Engine;
@@ -14,14 +16,12 @@ use encoding_rs::UTF_8;
 use imap::types::Fetch;
 use imap::{Client, Session};
 use log::{error, warn};
-use mail_parser::{BodyPartIterator, Message, MessageParser, MimeHeaders};
+use mail_parser::{Address, BodyPartIterator, Message, MessageParser, MimeHeaders};
 use native_tls::{TlsConnector, TlsStream};
 use regex::Regex;
 use std::collections::HashSet;
 use std::net::TcpStream;
 use tauri::AppHandle;
-use crate::snacks::snacks::send_snacks;
-use crate::structs::snack::{SnackHorizontal, SnackSeverity, SnackVertical};
 
 async fn login_imap_session(
     host: &str,
@@ -29,7 +29,7 @@ async fn login_imap_session(
     login: &str,
     password: &str,
     folder: &str,
-    app: &AppHandle
+    app: &AppHandle,
 ) -> Session<TlsStream<TcpStream>> {
     let imap_addr = (host, port);
     let tcp_stream = match TcpStream::connect(imap_addr) {
@@ -92,17 +92,16 @@ async fn login_imap_session(
     };
 
     if folder.eq("") {
-        imap_session
-            .select("INBOX").unwrap_or_else(|e| {
-                send_snacks(
-                    "Failed to select INBOX".to_string(),
-                    SnackSeverity::Error,
-                    SnackVertical::Top,
-                    SnackHorizontal::Right,
-                    &app,
-                );
-                panic!("{e}");
-            });
+        imap_session.select("INBOX").unwrap_or_else(|e| {
+            send_snacks(
+                "Failed to select INBOX".to_string(),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
+            panic!("{e}");
+        });
     } else {
         imap_session.select(folder).unwrap_or_else(|e| {
             send_snacks(
@@ -122,7 +121,7 @@ async fn login_imap_session(
 pub async fn open_imap_session(
     keychain_entry: KeychainEntry,
     folder: &str,
-    app: &AppHandle
+    app: &AppHandle,
 ) -> Session<TlsStream<TcpStream>> {
     let simple_mail_creds = fetch_by_keychain_id(&keychain_entry.id);
     let login = &simple_mail_creds.username;
@@ -177,59 +176,43 @@ fn get_deliver_date(mail: &Message) -> NaiveDateTime {
 
 pub fn parse_message(message: &Fetch, folder_path: String, app: &AppHandle) -> WebEmailPreview {
     let body_raw = message.body().expect("message did not have a body!");
-    let message = decode_message(body_raw, app);
+    let decoded_message = decode_message(body_raw, app);
 
-    let message_id = match message.message_id() {
+    let message_id = match decoded_message.message_id() {
         None => "".to_string(),
         Some(s) => s.to_string(),
     };
-    let delivered_at = get_deliver_date(&message);
+    let delivered_at = get_deliver_date(&decoded_message);
     let is_new_email = email_repository::email_already_exists(&message_id, &delivered_at);
 
     if is_new_email.is_none() {
-        let mut all_attachments = build_attachments(&message);
+        let mut all_attachments = build_attachments(&decoded_message);
         let mut html_bodies: Vec<String> = vec![];
         let mut text_bodies: Vec<String> = vec![];
 
-        if message.html_body_count().gt(&0) {
-            let bodies = fetch_html_bodies(message.html_bodies(), &mut all_attachments);
+        if decoded_message.html_body_count().gt(&0) {
+            let bodies = fetch_html_bodies(decoded_message.html_bodies(), &mut all_attachments);
             html_bodies.extend(bodies);
         }
 
-        if message.text_body_count().gt(&0) {
-            text_bodies.extend(fetch_text_bodies(message.text_bodies()));
+        if decoded_message.text_body_count().gt(&0) {
+            text_bodies.extend(fetch_text_bodies(decoded_message.text_bodies()));
         }
 
-        let from_addresses = message
-            .from()
-            .unwrap()
-            .as_list()
-            .into_iter()
-            .flat_map(|a| a.first())
-            .map(|a| a.address.clone());
-        let to_addresses = message
-            .to()
-            .unwrap()
-            .as_list()
-            .into_iter()
-            .flat_map(|a| a.first())
-            .map(|a| a.address.clone());
-
-        let subject = match message.subject() {
+        let subject = match decoded_message.subject() {
             None => "".to_string(),
             Some(s) => s.to_string(),
         };
+
+        let to_addresses = extract_addresses(decoded_message.to());
+        let from_addresses = extract_addresses(decoded_message.from());
 
         let mut mail = WebEmail {
             id: None,
             email_id: message_id.clone(),
             delivered_at,
-            from: from_addresses
-                .map(|a| a.unwrap().to_string())
-                .collect::<Vec<String>>(),
-            to: to_addresses
-                .map(|a| a.unwrap().to_string())
-                .collect::<Vec<String>>(),
+            from: from_addresses,
+            to: to_addresses,
             subject,
             folder_path,
             html_bodies,
@@ -254,6 +237,21 @@ pub fn parse_message(message: &Fetch, folder_path: String, app: &AppHandle) -> W
         email_repository::fetch_by_id_preview(mail.id.unwrap())
     } else {
         email_repository::fetch_by_id_preview(is_new_email.unwrap().id.unwrap())
+    }
+}
+
+fn extract_addresses(optional_address: Option<&Address>) -> Vec<String> {
+    match optional_address {
+        None => vec![],
+        Some(address) => address.as_list().into_iter().flat_map(|a|
+            a.iter().map(|ad| {
+                if ad.address().is_some() {
+                    ad.address().unwrap().to_string()
+                } else {
+                    "".to_string()
+                }
+            }).collect::<Vec<String>>()
+        ).collect::<Vec<String>>(),
     }
 }
 
@@ -472,7 +470,12 @@ pub async fn fetch_gmail_light_response(
     }
 }
 
-pub async fn fetch_gmail_message(access_token: &String, id: String, user: &String, app: &AppHandle) -> GEmail {
+pub async fn fetch_gmail_message(
+    access_token: &String,
+    id: String,
+    user: &String,
+    app: &AppHandle,
+) -> GEmail {
     let uri = format!(
         "https://gmail.googleapis.com/gmail/v1/users/{}/messages/{}",
         user, id

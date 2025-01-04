@@ -1,5 +1,4 @@
 use std::fmt;
-use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 
 pub enum SnackSeverity {

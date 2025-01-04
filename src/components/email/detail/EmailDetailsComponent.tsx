@@ -3,6 +3,7 @@ import EmailAttachmentComponent from '../attachments/EmailAttachmentComponent.ts
 import EmailBody from '../body/EmailBody.tsx';
 import { useRecoilValue } from 'recoil';
 import { localeState, selectedEmailState } from '../../../state/atoms.ts';
+import { Divider } from '@mui/material';
 
 export default function EmailDetailsComponent() {
   const { to, from, htmlBodies, textBodies, attachments, deliveredAt, subject, id } =
@@ -31,26 +32,28 @@ export default function EmailDetailsComponent() {
     return <div>---</div>;
   };
 
-  const recipients = () => {
+  const bubbles = (array: string[]) => {
     if (to.length > 1) {
       return (
         <>
-          <div className="bubble">{to[0]}</div>
-          <div className="bubble">& {to.length - 1} more</div>
+          <div className="bubble">{array[0]}</div>
+          <div className="bubble">& {array.length - 1} more</div>
         </>
       );
     }
-    return <div className="bubble">{to[0]}</div>;
+    return <div className="bubble">{array[0]}</div>;
   };
 
   return (
     <div>
       <div className="email">
-        <div className="email-address-list">From: {from.join(', ')}</div>
+        <div className="email-address-list">From: {bubbles(from)}</div>
         <h1>{subject}</h1>
-        <div className="email-address-list">To: {recipients()}</div>
+        <div className="email-address-list">To: {bubbles(to)}</div>
         <div>At: {parseDate(deliveredAt)}</div>
+        <Divider className={'spacing'} />
         {bodies()}
+        <Divider className={'spacing'} />
         <EmailAttachmentComponent attachments={attachments} />
       </div>
     </div>

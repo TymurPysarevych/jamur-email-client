@@ -91,3 +91,75 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 30px;
 }
+
+.spacing {
+  margin: 10px !important;
+
+  &--full {
+    width: 100%;
+  }
+
+  &--top {
+    margin-top: 10px !important;
+
+    &__small {
+      margin-top: 15px !important;
+    }
+
+    &__medium {
+      margin-top: 25px !important;
+    }
+
+    &__large {
+      margin-top: 40px !important;
+    }
+  }
+
+  &--bottom {
+    margin-bottom: 10px !important;
+
+    &__small {
+      margin-bottom: 15px !important;
+    }
+
+    &__medium {
+      margin-bottom: 25px !important;
+    }
+
+    &__large {
+      margin-bottom: 40px !important;
+    }
+  }
+
+  &--left {
+    margin-left: 10px !important;
+
+    &__small {
+      margin-left: 15px !important;
+    }
+
+    &__medium {
+      margin-left: 25px !important;
+    }
+
+    &__large {
+      margin-left: 40px !important;
+    }
+  }
+
+  &--right {
+    margin-right: 10px !important;
+
+    &___small {
+      margin-right: 15px !important;
+    }
+
+    &___medium {
+      margin-right: 25px !important;
+    }
+
+    &___large {
+      margin-right: 40px !important;
+    }
+  }
+}

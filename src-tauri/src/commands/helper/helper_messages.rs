@@ -536,3 +536,19 @@ pub async fn fetch_gmail_message(
 
     mail_raw
 }
+
+pub fn start_timer_for_messages(app: &AppHandle) {
+    let app_handle = app.clone();
+    std::thread::spawn(move || {
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(60));
+            send_snacks(
+                "Fetching new messages".to_string(),
+                SnackSeverity::Info,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app_handle,
+            );
+        }
+    });
+}

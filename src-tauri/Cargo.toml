@@ -32,6 +32,7 @@ reqwest = { version = "0.12.7", default-features = false, features = ["rustls-tl
 keyring = { version = "3.2.1", features = ["apple-native", "windows-native", "sync-secret-service"] }
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
+tauri-plugin-opener = "2.2.5"
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

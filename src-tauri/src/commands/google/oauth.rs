@@ -1,3 +1,4 @@
+use tauri_plugin_opener::OpenerExt;
 use crate::commands::helper::helper_keyring::{fetch_keyring_entry, save_keyring_entry};
 use crate::database::access_token_repository::save_access_token_google;
 use crate::database::keychain_entry_repository::{
@@ -21,12 +22,15 @@ use std::net::{SocketAddr, TcpListener};
 use std::sync::Arc;
 use log::error;
 use tauri::{AppHandle, Manager};
+use tauri_plugin_shell::open;
 use crate::snacks::snacks::send_snacks;
 use crate::structs::snack::{SnackHorizontal, SnackSeverity, SnackVertical};
 
 #[tauri::command]
 pub async fn authenticate_google(app: AppHandle) {
     let auth = app.state::<AuthState>();
+    let run_server_app = app.clone();
+    let opener = app.opener();
     let scope_value = "https://mail.google.com/ https://www.googleapis.com/auth/userinfo.email openid https://www.googleapis.com/auth/gmail.compose".to_string();
     let (auth_url, _) = auth
         .client
@@ -38,8 +42,20 @@ pub async fn authenticate_google(app: AppHandle) {
         .set_pkce_challenge(auth.pkce.0.clone())
         .url();
 
-    tauri::async_runtime::spawn(async move { run_server(app).await });
-    open::that(auth_url.to_string()).unwrap();
+    tauri::async_runtime::spawn(async move { run_server(run_server_app).await });
+    match opener.open_url(auth_url.as_str(), None::<&str>) {
+        Ok(_) => (),
+        Err(error) => {
+            send_snacks(
+                format!("Error opening browser: {:?}", error),
+                SnackSeverity::Error,
+                SnackVertical::Top,
+                SnackHorizontal::Right,
+                &app,
+            );
+            panic!("Error opening browser: {:?}", error);
+        }
+    };
 }
 
 async fn authorize(
@@ -124,12 +140,12 @@ async fn fetch_user_email(token: &BasicTokenResponse) -> String {
     }
 }
 
-async fn run_server(handle: tauri::AppHandle) -> Result<(), axum::Error> {
+async fn run_server(handle: AppHandle) -> Result<(), axum::Error> {
     let app = Router::new()
         .route("/callback", get(authorize))
         .layer(Extension(handle.clone()));
 
-    let listener = tokio::net::TcpListener::bind(&handle.state::<AuthState>().socket_addr.clone())
+    let listener = tokio::net::TcpListener::bind(handle.state::<AuthState>().socket_addr.clone())
         .await
         .unwrap();
     let _ = axum::serve(listener, app).await.unwrap();

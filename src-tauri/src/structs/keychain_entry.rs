@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
     Eq,
     Hash,
     PartialEq,
+    Clone,
     AsChangeset,
 )]
 #[diesel(table_name = crate::database::schema::keychain_entry)]

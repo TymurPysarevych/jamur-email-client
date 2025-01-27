@@ -22,6 +22,11 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::net::TcpStream;
 use tauri::AppHandle;
+use crate::commands::imap::fetch_imap_folders;
+use crate::commands::messages;
+use crate::commands::messages::fetch_messages;
+use crate::commands::user::credentials_exist;
+use crate::database::schema::access_token::keychain_user;
 
 async fn login_imap_session(
     host: &str,
@@ -539,16 +544,42 @@ pub async fn fetch_gmail_message(
 
 pub fn start_timer_for_messages(app: &AppHandle) {
     let app_handle = app.clone();
-    std::thread::spawn(move || {
+    std::thread::spawn(async move || {
         loop {
-            std::thread::sleep(std::time::Duration::from_secs(60));
-            send_snacks(
-                "Fetching new messages".to_string(),
-                SnackSeverity::Info,
-                SnackVertical::Top,
-                SnackHorizontal::Right,
-                &app_handle,
-            );
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            let keychain_entries = match credentials_exist().await {
+                Ok(vec) => vec,
+                Err(error) => {
+                    send_snacks(
+                        "Error getting keychain entries".to_string(),
+                        SnackSeverity::Error,
+                        SnackVertical::Top,
+                        SnackHorizontal::Right,
+                        &app_handle,
+                    );
+                    panic!("Error getting keychain entries: {:?}", error);
+                }
+            };
+            for keychain_entry in keychain_entries.into_iter() {
+                if keychain_entry.key.starts_with("jamur/imap") {
+                    let folders = match fetch_imap_folders(app_handle.clone(), keychain_entry.clone()).await {
+                        Ok(vec) => vec,
+                        Err(error) => {
+                            send_snacks(
+                                "Error getting folders".to_string(),
+                                SnackSeverity::Error,
+                                SnackVertical::Top,
+                                SnackHorizontal::Right,
+                                &app_handle,
+                            );
+                            panic!("Error getting folders: {:?}", error);
+                        }
+                    };
+                    for folder in folders.into_iter() {
+                        fetch_messages(app_handle.clone(), keychain_entry.clone(), folder).await;
+                    }
+                }
+            }
         }
     });
 }
